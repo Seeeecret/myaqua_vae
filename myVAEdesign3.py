@@ -103,7 +103,10 @@ class Decoder(nn.Module):
             )
             if out_c != 1:
                 layers.append(nn.InstanceNorm1d(out_c))
-                layers.append(nn.LeakyReLU(0.2, inplace=True))
+                if idx != len(out_channels_list) - 1:
+                    layers.append(nn.LeakyReLU(0.2, inplace=True))
+                else:
+                    layers.append(nn.Tanh())
             #     TODO:最后输出还激活会导致输出值全都在-1到1之间
             # else:
                 # layers.append(nn.Tanh())  # 最后一层使用 Tanh 激活函数

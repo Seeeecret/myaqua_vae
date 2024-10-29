@@ -184,11 +184,18 @@ def train(args):
             else:
                 loss, recon_loss, kld_loss = model.loss_function(recon_data, data, mu, logvar)
 
-            total_loss += loss.item()
 
             # Backward pass
             accelerator.backward(loss)
             optimizer.step()
+
+            total_loss += loss.item()
+            with torch.no_grad():
+                output_min = recon_data.min().item()
+                output_max = recon_data.max().item()
+                logger.info(f"Decoder output range: [{output_min}, {output_max}]")
+                accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
+
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
             # Log training progress
@@ -269,6 +276,7 @@ def train(args):
         accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
         torch.save(unwrapped_model.state_dict(), model_path)
+        accelerator.print(f"Model saved to {model_path}")
         logger.info(f"Model saved to {model_path}")
 
 # =============================================================================
