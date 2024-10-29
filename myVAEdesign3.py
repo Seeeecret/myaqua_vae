@@ -101,12 +101,18 @@ class Decoder(nn.Module):
                     output_padding=1  # 根据需要调整 output_padding 以匹配尺寸
                 )
             )
-            if out_c != 1:
-                layers.append(nn.InstanceNorm1d(out_c))
-                if idx != len(out_channels_list) - 1:
-                    layers.append(nn.LeakyReLU(0.2, inplace=True))
-                else:
-                    layers.append(nn.Tanh())
+            # if out_c != 1:
+
+            layers.append(nn.InstanceNorm1d(out_c))
+            layers.append(nn.LeakyReLU())
+
+            # if idx != len(out_channels_list) - 1:
+            #     layers.append(nn.LeakyReLU(0.2, inplace=True))
+            # else:
+            #     layers.append(nn.Tanh())
+            if idx == len(out_channels_list) - 1:
+                layers.append(nn.Conv1d(out_c, 1, kernel_size=3, stride=1, padding=1))
+                layers.append(nn.Tanh())
             #     TODO:最后输出还激活会导致输出值全都在-1到1之间
             # else:
                 # layers.append(nn.Tanh())  # 最后一层使用 Tanh 激活函数
