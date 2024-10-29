@@ -104,8 +104,9 @@ class Decoder(nn.Module):
             if out_c != 1:
                 layers.append(nn.InstanceNorm1d(out_c))
                 layers.append(nn.LeakyReLU(0.2, inplace=True))
-            else:
-                layers.append(nn.Tanh())  # 最后一层使用 Tanh 激活函数
+            #     TODO:最后输出还激活会导致输出值全都在-1到1之间
+            # else:
+                # layers.append(nn.Tanh())  # 最后一层使用 Tanh 激活函数
 
         self.layers = nn.Sequential(*layers)
 
@@ -167,7 +168,7 @@ class VAE(nn.Module):
         mu, logvar = self.encoder(x)     # 编码器输出均值和对数方差
         z = self.reparameterize(mu, logvar)  # 重参数化采样潜在向量
         # z = z.view(x.shape)
-        z = torch.clamp(z, -1, 1)
+        # z = torch.clamp(z, -1, 1)
         recon_x = self.decoder(z)        # 解码器生成重建数据
         # recon_x = recon_x.squeeze(1)     # 去掉多余的维度
         return recon_x, mu, logvar       # 返回重建数据、均值和对数方差

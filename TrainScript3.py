@@ -22,7 +22,7 @@ if not os.path.isdir(os.environ['HF_HOME']):
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from accelerate import Accelerator
 from accelerate.logging import get_logger
@@ -122,8 +122,14 @@ def train(args):
     )
 
     # Define optimizer and scheduler
-    optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
+    # TODO: Adam改为AdamW
+    # optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
+    optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
+    # Calculate total steps for the entire training
+    total_steps = len(train_dataloader) * args.num_epochs
+    accelerator.print(f"Total training steps: {total_steps}")
+    logger.info(f"Total training steps: {total_steps}")
 
     # Prepare everything with accelerator
     model, optimizer, train_dataloader, val_dataloader, scheduler, logger = accelerator.prepare(
