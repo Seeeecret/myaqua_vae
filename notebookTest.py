@@ -1,0 +1,2 @@
+import notebook
+notebook.version_info

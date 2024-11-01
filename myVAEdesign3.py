@@ -189,7 +189,7 @@ class VAE(nn.Module):
         # 重建损失，使用均方误差（MSE）
         recon_x = recon_x.squeeze(1)
         x = x.squeeze(1)
-        recon_loss = F.mse_loss(recon_x, x, reduction='mean')
+        recon_loss = F.mse_loss(recon_x, x, reduction='sum')
         # KL散度损失
         kld_loss = torch.mean(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1), dim=0)
         # 总损失
@@ -201,6 +201,6 @@ class VAE(nn.Module):
         从潜在空间中采样生成新样本
         """
         with torch.no_grad():
-            z = torch.randn(num_samples, self.latent_dim).to(self.device)
+            z = torch.randn(num_samples, self.latent_dim).cuda()
             samples = self.decoder(z)
         return samples

@@ -5,8 +5,6 @@ Multi-GPU Training Script for VAE using Accelerate Library
 This script trains the provided VAE model on multiple GPUs using the Hugging Face Accelerate library.
 It includes mixed-precision training, learning rate scheduling, and logging.
 
-Author: [Dorin Wu]
-Date: [2024/10/22]
 """
 
 import os
@@ -29,7 +27,8 @@ from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
 from myVAEdesign3 import VAE
-
+import matplotlib.pyplot as plt
+import os
 
 
 # =============================================================================
@@ -102,6 +101,9 @@ def train(args):
     accelerator.print("Random seed set to", args.seed)
     logger.info("Starting training...")
 
+    # 初始化用于记录训练和验证损失的列表
+    train_loss_list = []
+    val_loss_list = []
 
     # Initialize the VAE model
     model = VAE(
@@ -239,6 +241,9 @@ def train(args):
             logger.info(f"Saved checkpoint at {checkpoint_path}")
             accelerator.print(f"Saved checkpoint at {checkpoint_path}")
 
+        # 记录当前epoch的平均训练损失
+        avg_train_loss = total_loss / len(train_dataloader)
+        train_loss_list.append(avg_train_loss)
 
         if epoch % args.validation_epochs == 0:
             accelerator.print(f"Epoch [{epoch+1}/{args.num_epochs}], Total Loss: {total_loss:.4f}")
@@ -259,6 +264,7 @@ def train(args):
                     val_loss += loss.item()
 
                 avg_val_loss = val_loss / len(val_dataloader)
+                val_loss_list.append(avg_val_loss)
                 if accelerator.is_main_process:
                     accelerator.print(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
                     logger.info(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
@@ -278,6 +284,19 @@ def train(args):
         torch.save(unwrapped_model.state_dict(), model_path)
         accelerator.print(f"Model saved to {model_path}")
         logger.info(f"Model saved to {model_path}")
+
+    # 绘制损失曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Train Loss')
+    plt.plot(range(1, args.num_epochs + 1), val_loss_list, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'loss_curve1.png'))
+    plt.show()
+
 
 # =============================================================================
 # Argument Parsing
