@@ -10,7 +10,6 @@ import odvae
 os.environ['HF_HOME'] = '/NEW_EDS/JJ_Group/shaoyh/dorin/cache'
 if not os.path.isdir(os.environ['HF_HOME']):
     os.makedirs(os.environ['HF_HOME'])
-from diffusers import StableDiffusionPipeline, AutoencoderKL
 from diffusers import UNet2DConditionModel
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -23,7 +22,6 @@ import torch
 import os
 import myVAEdesign2
 # 试着将重建的lora权重加载到odvae模型中
-from odvae import ODVAE, medium, small
 
 logger = get_logger(__name__)
 
@@ -55,7 +53,7 @@ def main():
     # 示例数据加载（请替换为您的数据加载逻辑）
     # 生成随机数据作为示例
     batch_size = 2
-    dataset_path = "./checkpoints/lora_weights_dataset"
+    dataset_path = "../checkpoints/lora_weights_dataset"
 
     rand_val_dataset_path = os.path.join(dataset_path, "rand_val")
     rand_test_dataset_path = os.path.join(dataset_path, "rand_test")

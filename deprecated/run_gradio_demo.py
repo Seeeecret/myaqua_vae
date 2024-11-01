@@ -1,5 +1,5 @@
 import sys
-sys.path.append("./scripts")
+sys.path.append("../scripts")
 import gradio as gr
 import numpy as np
 from scripts.create_wm_lora import create_watermark_lora
