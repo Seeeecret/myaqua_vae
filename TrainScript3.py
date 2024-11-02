@@ -29,6 +29,12 @@ import logging
 from myVAEdesign3 import VAE
 import matplotlib.pyplot as plt
 import os
+import numpy as np
+from transformers import get_linear_schedule_with_warmup
+
+import matplotlib.pyplot as plt
+# from sklearn.manifold import TSNE
+# from sklearn.decomposition import PCA
 
 
 # =============================================================================
@@ -90,8 +96,10 @@ def train(args):
     # =============================================================================
     logger = get_logger(__name__, log_level="INFO")
     log_file_path = './logs/train.log'
-    # logger = logging.getLogger(__name__)
+    file_handler = logging.FileHandler(log_file_path)  # 指定日志文件名
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.logger.addHandler(file_handler)
     # 开始记录日志
     logger.info("This is an info message.")
 
@@ -122,14 +130,18 @@ def train(args):
     val_dataloader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True
     )
+    total_steps = len(train_dataloader) * args.num_epochs
+    warmup_steps = int(total_steps * args.warmup_ratio)
 
     # Define optimizer and scheduler
     # TODO: Adam改为AdamW
     # optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
     optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
+    # scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
+    # TODO: 改为使用 transformers 提供的支持warm up的学习率调度器
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
     # Calculate total steps for the entire training
-    total_steps = len(train_dataloader) * args.num_epochs
     accelerator.print(f"Total training steps: {total_steps}")
     logger.info(f"Total training steps: {total_steps}")
 
@@ -190,6 +202,8 @@ def train(args):
             # Backward pass
             accelerator.backward(loss)
             optimizer.step()
+            # TODO: 改为每一步后都进行学习率调度
+            scheduler.step()
 
             total_loss += loss.item()
             with torch.no_grad():
@@ -199,7 +213,9 @@ def train(args):
                 accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
 
             # Get current learning rate
-            current_lr = optimizer.param_groups[0]['lr']
+            # current_lr = optimizer.param_groups[0]['lr']
+            current_lr = scheduler.get_last_lr()[0]
+
             # Log training progress
             if accelerator.is_main_process and batch_idx % args.log_interval == 0:
                 accelerator.print(
@@ -229,7 +245,7 @@ def train(args):
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
         # Step the scheduler
-        scheduler.step()
+        # scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
@@ -333,6 +349,8 @@ def parse_args():
             "Run dreambooth validation every X epochs. Dreambooth validation consists of running the prompt"
             " `args.validation_prompt` multiple times: `args.num_validation_images`."
         ))
+    parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
+
     # Mixed precision
     parser.add_argument('--fp16', action='store_true',
                         help="Use mixed precision training.")
