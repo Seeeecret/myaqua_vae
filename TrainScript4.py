@@ -26,7 +26,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3 import VAE
+from myVAEdesign4 import VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -35,7 +35,7 @@ from transformers import get_linear_schedule_with_warmup
 import matplotlib.pyplot as plt
 # from sklearn.manifold import TSNE
 # from sklearn.decomposition import PCA
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 # =============================================================================
 # Dataset Definition
@@ -78,7 +78,11 @@ class VAEDataset(Dataset):
 # =============================================================================
 # Training Function
 # =============================================================================
-
+def print_grad(name):
+    def hook(grad):
+        # 打印层的名字和对应的梯度
+        print(f"Layer: {name}, Gradient mean: {grad.mean()}, Gradient std: {grad.std()}")
+    return hook
 def train(args):
     """
     Main training loop.
@@ -95,7 +99,7 @@ def train(args):
     # Setup Logging
     # =============================================================================
     logger = get_logger(__name__, log_level="INFO")
-    log_file_path = './logs/train4.log'
+    log_file_path = args.log_dir
     file_handler = logging.FileHandler(log_file_path)  # 指定日志文件名
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -155,6 +159,10 @@ def train(args):
     if args.checkpoint_dir:
         os.makedirs(args.checkpoint_dir, exist_ok=True)
 
+    # 在模型初始化后注册钩子
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            param.register_hook(print_grad(name))
     # Resume from checkpoint if specified
     start_epoch = 0
     if args.resume_from_checkpoint and args.checkpoint_dir:
@@ -209,11 +217,11 @@ def train(args):
             accelerator.backward(loss)
 
             # 检查梯度是否正常计算
-            for name, param in model.named_parameters():
-                if param.grad is None:
-                    print(f"Warning: No gradient for parameter {name}")
-                elif torch.all(param.grad == 0):
-                    print(f"Warning: Gradient for parameter {name} is all zeros.")
+            # for name, param in model.named_parameters():
+            #     if param.grad is None:
+            #         print(f"Warning: No gradient for parameter {name}")
+            #     elif torch.all(param.grad == 0):
+            #         print(f"Warning: Gradient for parameter {name} is all zeros.")
 
             optimizer.step()
             # TODO: 改为每一步后都进行学习率调度
@@ -380,6 +388,8 @@ def parse_args():
     # Logging and output
     parser.add_argument('--log_interval', type=int, default=1,
                         help="How often to log training progress (in batches).")
+    # 日志输出目录
+    parser.add_argument('--log_dir', type=str, default='./logs/trainlog.log')
     parser.add_argument('--output_dir', type=str, default='./output2/new',
                         help="Directory to save the final model.")
     # Checkpoint parameters

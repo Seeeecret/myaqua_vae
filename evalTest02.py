@@ -8,7 +8,7 @@ from diffusers import UNet2DConditionModel
 from safetensors.torch import load_file
 
 original_lora_param_info = {}
-safetensors_data_path = "./checkpoints/georgefen-AquaLoRA-Models/ppft_trained/pytorch_lora_weights.safetensors"
+safetensors_data_path = "./checkpoints/vae_test/origin_ppft_trained/pytorch_lora_weights.safetensors"
 # original_lora_data_lengths = []
 model = load_file(safetensors_data_path)
 for key, value in model.items():
@@ -18,7 +18,7 @@ for key, value in model.items():
     }
     original_lora_param_info[key] = param_info
 
-reconstructed_lora_vector = torch.load('/mnt/share_disk/dorin/AquaLoRA/output/20241030_1505/vae_final.pth')
+reconstructed_lora_vector = torch.load('/mnt/share_disk/dorin/AquaLoRA/output/sum_kld_weight_0005/vae_final.pth')
 # 打印重建模型参数信息
 reconstructed_lora_param_info = {}
 # 将 .item() 改为直接使用 .items() 方法进行遍历

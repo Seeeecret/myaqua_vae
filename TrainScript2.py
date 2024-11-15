@@ -1,22 +1,24 @@
 
 """
+旧版VAE的训练脚本
 Multi-GPU Training Script for VAE using Accelerate Library
 
 This script trains the provided VAE model on multiple GPUs using the Hugging Face Accelerate library.
 It includes mixed-precision training, learning rate scheduling, and logging.
 
+Author: [Dorin Wu]
+Date: [2024/10/22]
 """
 
 import os
 import argparse
 import logging
 from glob import glob
+# 删除下面的环境变量HF_HOME
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
-# os.environ['HF_HOME'] = '/NEW_EDS/JJ_Group/shaoyh/dorin/cache'
-# if not os.path.isdir(os.environ['HF_HOME']):
-#     os.makedirs(os.environ['HF_HOME'])
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -26,15 +28,8 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3 import VAE
-import matplotlib.pyplot as plt
-import os
-import numpy as np
-from transformers import get_linear_schedule_with_warmup
+from myVAEdesign2 import VAE
 
-import matplotlib.pyplot as plt
-# from sklearn.manifold import TSNE
-# from sklearn.decomposition import PCA
 
 
 # =============================================================================
@@ -95,7 +90,7 @@ def train(args):
     # Setup Logging
     # =============================================================================
     logger = get_logger(__name__, log_level="INFO")
-    log_file_path = './logs/train4.log'
+    log_file_path = args.log_dir
     file_handler = logging.FileHandler(log_file_path)  # 指定日志文件名
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
@@ -103,23 +98,17 @@ def train(args):
     # 开始记录日志
     logger.info("This is an info message.")
 
-
     # 使用 accelerator 提供的 logger
     accelerator.print(f"Using {accelerator.device.type} device")
     accelerator.print("Random seed set to", args.seed)
     logger.info("Starting training...")
 
-    # 初始化用于记录训练和验证损失的列表
-    train_loss_list = []
-    val_loss_list = []
 
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
         input_length=135659520,
-        kld_weight=args.kld_weight,
-        encoder_channel_list=args.encoder_channels,
-        decoder_channel_list=args.decoder_channels
+        kld_weight=args.kld_weight
     ).to(device)
 
     # Prepare datasets and dataloaders
@@ -132,18 +121,14 @@ def train(args):
     val_dataloader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True
     )
-    total_steps = len(train_dataloader) * args.num_epochs
-    warmup_steps = int(total_steps * args.warmup_ratio)
 
     # Define optimizer and scheduler
     # TODO: Adam改为AdamW
     # optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
     optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
-    # scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
-    # TODO: 改为使用 transformers 提供的支持warm up的学习率调度器
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
     # Calculate total steps for the entire training
+    total_steps = len(train_dataloader) * args.num_epochs
     accelerator.print(f"Total training steps: {total_steps}")
     logger.info(f"Total training steps: {total_steps}")
 
@@ -171,10 +156,6 @@ def train(args):
         else:
             logger.info(f"No checkpoints found in {args.checkpoint_dir}, starting from scratch.")
 
-    #  检查模型参数的 requires_grad 状态
-    for name, param in model.named_parameters():
-        if not param.requires_grad:
-            print(f"Warning: Parameter {name} does not require gradient.")
 
     # Training loop
     for epoch in range(start_epoch, args.num_epochs):
@@ -204,20 +185,10 @@ def train(args):
             else:
                 loss, recon_loss, kld_loss = model.loss_function(recon_data, data, mu, logvar)
 
-            # with torch.set_grad_enabled(True):
+
             # Backward pass
             accelerator.backward(loss)
-
-            # 检查梯度是否正常计算
-            for name, param in model.named_parameters():
-                if param.grad is None:
-                    print(f"Warning: No gradient for parameter {name}")
-                elif torch.all(param.grad == 0):
-                    print(f"Warning: Gradient for parameter {name} is all zeros.")
-
             optimizer.step()
-            # TODO: 改为每一步后都进行学习率调度
-            scheduler.step()
 
             total_loss += loss.item()
             with torch.no_grad():
@@ -227,9 +198,7 @@ def train(args):
                 accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
 
             # Get current learning rate
-            # current_lr = optimizer.param_groups[0]['lr']
-            current_lr = scheduler.get_last_lr()[0]
-
+            current_lr = optimizer.param_groups[0]['lr']
             # Log training progress
             if accelerator.is_main_process and batch_idx % args.log_interval == 0:
                 accelerator.print(
@@ -259,7 +228,7 @@ def train(args):
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
         # Step the scheduler
-        # scheduler.step()
+        scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
@@ -271,9 +240,6 @@ def train(args):
             logger.info(f"Saved checkpoint at {checkpoint_path}")
             accelerator.print(f"Saved checkpoint at {checkpoint_path}")
 
-        # 记录当前epoch的平均训练损失
-        avg_train_loss = total_loss / len(train_dataloader)
-        train_loss_list.append(avg_train_loss)
 
         if epoch % args.validation_epochs == 0:
             accelerator.print(f"Epoch [{epoch+1}/{args.num_epochs}], Total Loss: {total_loss:.4f}")
@@ -294,7 +260,6 @@ def train(args):
                     val_loss += loss.item()
 
                 avg_val_loss = val_loss / len(val_dataloader)
-                val_loss_list.append(avg_val_loss)
                 if accelerator.is_main_process:
                     accelerator.print(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
                     logger.info(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
@@ -314,19 +279,6 @@ def train(args):
         torch.save(unwrapped_model.state_dict(), model_path)
         accelerator.print(f"Model saved to {model_path}")
         logger.info(f"Model saved to {model_path}")
-
-    # 绘制损失曲线
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Train Loss')
-    plt.plot(range(1, args.num_epochs + 1), val_loss_list, label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training and Validation Loss over Epochs')
-    plt.legend()
-    plt.grid()
-    plt.savefig(os.path.join(args.output_dir, 'loss_curve1.png'))
-    plt.show()
-
 
 # =============================================================================
 # Argument Parsing
@@ -356,10 +308,10 @@ def parse_args():
     parser.add_argument('--kld_weight', type=float, default=0.005,
                         help="Weight for the KL divergence loss.")
     # encoder channels，输入一个列表
-    parser.add_argument('--encoder_channels', type=int, nargs='+',default=None,
+    parser.add_argument('--encoder_channels', type=int, nargs='+', default=None,
                         help="Number of channels in the encoder layers.")
     # decoder channels，输入一个列表
-    parser.add_argument('--decoder_channels', type=int, nargs='+',default=None,
+    parser.add_argument('--decoder_channels', type=int, nargs='+', default=None,
                         help="Number of channels in the decoder layers.")
     parser.add_argument(
         "--validation_epochs",
@@ -375,11 +327,11 @@ def parse_args():
     parser.add_argument('--fp16', action='store_true',
                         help="Use mixed precision training.")
 
-
-
     # Logging and output
     parser.add_argument('--log_interval', type=int, default=1,
                         help="How often to log training progress (in batches).")
+    # 日志输出目录
+    parser.add_argument('--log_dir', type=str, default='./logs/trainlog.log')
     parser.add_argument('--output_dir', type=str, default='./output2/new',
                         help="Directory to save the final model.")
     # Checkpoint parameters
