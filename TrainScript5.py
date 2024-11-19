@@ -14,18 +14,28 @@ from glob import glob
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
-
+# os.environ['HF_HOME'] = '/NEW_EDS/JJ_Group/shaoyh/dorin/cache'
+# if not os.path.isdir(os.environ['HF_HOME']):
+#     os.makedirs(os.environ['HF_HOME'])
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam, AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
-from myVAEdesign4 import VAE
+# Import the VAE model from the provided code
+from myVAEdesign5 import VAE
+import matplotlib.pyplot as plt
 import os
+import numpy as np
 from transformers import get_linear_schedule_with_warmup
 
 import matplotlib.pyplot as plt
+# from sklearn.manifold import TSNE
+# from sklearn.decomposition import PCA
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 # =============================================================================
 # Dataset Definition
@@ -150,9 +160,9 @@ def train(args):
         os.makedirs(args.checkpoint_dir, exist_ok=True)
 
     # 在模型初始化后注册钩子
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            param.register_hook(print_grad(name))
+    # for name, param in model.named_parameters():
+    #     if param.requires_grad:
+            # param.register_hook(print_grad(name))
     # Resume from checkpoint if specified
     start_epoch = 0
     if args.resume_from_checkpoint and args.checkpoint_dir:
@@ -214,8 +224,8 @@ def train(args):
             #         print(f"Warning: Gradient for parameter {name} is all zeros.")
 
             optimizer.step()
-            # TODO: 改为每一步后都进行学习率调度
-            scheduler.step()
+            # TODO: 改为每一步后都进行学习率调度; 2024.11.15二改
+            # scheduler.step()
 
             total_loss += loss.item()
             with torch.no_grad():
@@ -271,6 +281,9 @@ def train(args):
 
         # 记录当前epoch的平均训练损失
         avg_train_loss = total_loss / len(train_dataloader)
+
+        scheduler.step(avg_train_loss)
+
         train_loss_list.append(avg_train_loss)
 
         if epoch % args.validation_epochs == 0:
@@ -347,7 +360,7 @@ def parse_args():
                         help="Number of training epochs.")
     parser.add_argument('--batch_size', type=int, default=2,
                         help="Batch size for training.")
-    parser.add_argument('--learning_rate', type=float, default=1e-4,
+    parser.add_argument('--learning_rate', type=float, default=2e-4,
                         help="Learning rate for the optimizer.")
     parser.add_argument('--latent_dim', type=int, default=256,
                         help="Dimension of the latent space.")

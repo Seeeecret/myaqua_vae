@@ -14,18 +14,28 @@ from glob import glob
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
-
+# os.environ['HF_HOME'] = '/NEW_EDS/JJ_Group/shaoyh/dorin/cache'
+# if not os.path.isdir(os.environ['HF_HOME']):
+#     os.makedirs(os.environ['HF_HOME'])
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam, AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
-from myVAEdesign4 import VAE
+# Import the VAE model from the provided code
+from myVAEdesign5_alter import VAE
+import matplotlib.pyplot as plt
 import os
+import numpy as np
 from transformers import get_linear_schedule_with_warmup
 
 import matplotlib.pyplot as plt
+# from sklearn.manifold import TSNE
+# from sklearn.decomposition import PCA
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 # =============================================================================
 # Dataset Definition
@@ -33,19 +43,21 @@ import matplotlib.pyplot as plt
 
 class VAEDataset(Dataset):
     """
-    Custom Dataset for loading VAE training and evaluation data.
-    Each data file is a 1D tensor of length 135659520.
+    Custom Dataset for loading normalized VAE training and evaluation data.
+    Each data file is a dictionary containing:
+      - "flattened": the normalized data as a 1D tensor.
+      - "mean": the mean value of the original data.
+      - "std": the standard deviation of the original data.
     """
 
     def __init__(self, data_dir):
         """
         Args:
-            data_dir (str): Directory containing the data files.
+            data_dir (str): Directory containing the normalized data files.
         """
         self.data_files = glob(os.path.join(data_dir, 'normalized_*.pth'))
         if not self.data_files:
             raise FileNotFoundError(f"No data files found in {data_dir}")
-        # logger.info(f"Found {len(self.data_files)} files in {data_dir}")
 
     def __len__(self):
         return len(self.data_files)
@@ -55,15 +67,22 @@ class VAEDataset(Dataset):
         Load and return a data sample.
         """
         try:
-            data = torch.load(self.data_files[idx])
-            if data.numel() != 135659520:
-                raise ValueError(f"Data size mismatch in {self.data_files[idx]}")
-            # Reshape data to (1, length) for 1D convolution
-            data = data.unsqueeze(0)
-            return data
+            data_dict = torch.load(self.data_files[idx])
+            if "data" not in data_dict:
+                raise ValueError(f"Missing 'data' key in {self.data_files[idx]}")
+
+            # Load the flattened normalized data
+            flattened_data = data_dict["data"]
+
+            # Ensure data is in the expected shape for training
+            if flattened_data.dim() != 1:
+                raise ValueError(f"Flattened data in {self.data_files[idx]} is not 1D")
+
+            # Reshape to (1, length) for 1D convolution and return
+            return flattened_data.unsqueeze(0)
         except Exception as e:
-            # logger.error(f"Error loading {self.data_files[idx]}: {e}")
-            raise e
+            raise ValueError(f"Error loading {self.data_files[idx]}: {e}")
+
 
 # =============================================================================
 # Training Function
@@ -110,7 +129,7 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=135659520,
+        input_length=54263808,
         kld_weight=args.kld_weight,
         encoder_channel_list=args.encoder_channels,
         decoder_channel_list=args.decoder_channels
@@ -118,14 +137,14 @@ def train(args):
 
     # Prepare datasets and dataloaders
     train_dataset = VAEDataset(args.train_data_dir)
-    val_dataset = VAEDataset(args.val_data_dir)
+    # val_dataset = VAEDataset(args.val_data_dir)
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True
     )
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True
-    )
+    # val_dataloader = DataLoader(
+    #     val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True
+    # )
     total_steps = len(train_dataloader) * args.num_epochs
     warmup_steps = int(total_steps * args.warmup_ratio)
 
@@ -150,9 +169,9 @@ def train(args):
         os.makedirs(args.checkpoint_dir, exist_ok=True)
 
     # 在模型初始化后注册钩子
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            param.register_hook(print_grad(name))
+    # for name, param in model.named_parameters():
+    #     if param.requires_grad:
+            # param.register_hook(print_grad(name))
     # Resume from checkpoint if specified
     start_epoch = 0
     if args.resume_from_checkpoint and args.checkpoint_dir:
@@ -214,8 +233,8 @@ def train(args):
             #         print(f"Warning: Gradient for parameter {name} is all zeros.")
 
             optimizer.step()
-            # TODO: 改为每一步后都进行学习率调度
-            scheduler.step()
+            # TODO: 改为每一步后都进行学习率调度; 2024.11.15二改
+            # scheduler.step()
 
             total_loss += loss.item()
             with torch.no_grad():
@@ -271,6 +290,9 @@ def train(args):
 
         # 记录当前epoch的平均训练损失
         avg_train_loss = total_loss / len(train_dataloader)
+
+        scheduler.step(avg_train_loss)
+
         train_loss_list.append(avg_train_loss)
 
         if epoch % args.validation_epochs == 0:
@@ -347,7 +369,7 @@ def parse_args():
                         help="Number of training epochs.")
     parser.add_argument('--batch_size', type=int, default=2,
                         help="Batch size for training.")
-    parser.add_argument('--learning_rate', type=float, default=1e-4,
+    parser.add_argument('--learning_rate', type=float, default=2e-4,
                         help="Learning rate for the optimizer.")
     parser.add_argument('--latent_dim', type=int, default=256,
                         help="Dimension of the latent space.")

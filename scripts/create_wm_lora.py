@@ -16,7 +16,7 @@ def create_watermark_lora(train_folder, scale, msg_bits=48, hidinfo=None, save=T
         hidinfo = torch.tensor([int(i) for i in hidinfo]).unsqueeze(0)
     hidinfo_ = hidinfo.float()
 
-    mapper = MapperNet(input_size=msg_bits, output_size=320)
+    mapper = MapperNet(input_size=msg_bits, output_size=128)
     mapper.load_state_dict(torch.load(f"{train_folder}/mapper.pt"))
     mapped_loradiag = mapper(hidinfo_)
 

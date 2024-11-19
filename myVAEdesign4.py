@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim=256, input_length=135659520, kld_weight=0.005, kernel_size=5, stride=4, padding=1,
+    def __init__(self, latent_dim=256, input_length=54263808, kld_weight=0.005, kernel_size=5, stride=4, padding=1,
                  encoder_channel_list=None):
         super(Encoder, self).__init__()
         self.latent_dim = latent_dim  # 潜在空间维度
@@ -35,7 +35,7 @@ class Encoder(nn.Module):
                 )
             )
             layers.append(nn.InstanceNorm1d(out_c))
-            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            layers.append(nn.LeakyReLU())
 
         # 移除最后一个激活函数，添加Tanh激活函数
         layers = layers[:-1]

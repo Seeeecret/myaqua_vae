@@ -33,19 +33,21 @@ import matplotlib.pyplot as plt
 
 class VAEDataset(Dataset):
     """
-    Custom Dataset for loading VAE training and evaluation data.
-    Each data file is a 1D tensor of length 135659520.
+    Custom Dataset for loading normalized VAE training and evaluation data.
+    Each data file is a dictionary containing:
+      - "flattened": the normalized data as a 1D tensor.
+      - "mean": the mean value of the original data.
+      - "std": the standard deviation of the original data.
     """
 
     def __init__(self, data_dir):
         """
         Args:
-            data_dir (str): Directory containing the data files.
+            data_dir (str): Directory containing the normalized data files.
         """
         self.data_files = glob(os.path.join(data_dir, 'normalized_*.pth'))
         if not self.data_files:
             raise FileNotFoundError(f"No data files found in {data_dir}")
-        # logger.info(f"Found {len(self.data_files)} files in {data_dir}")
 
     def __len__(self):
         return len(self.data_files)
@@ -55,15 +57,22 @@ class VAEDataset(Dataset):
         Load and return a data sample.
         """
         try:
-            data = torch.load(self.data_files[idx])
-            if data.numel() != 135659520:
-                raise ValueError(f"Data size mismatch in {self.data_files[idx]}")
-            # Reshape data to (1, length) for 1D convolution
-            data = data.unsqueeze(0)
-            return data
+            data_dict = torch.load(self.data_files[idx])
+            if "data" not in data_dict:
+                raise ValueError(f"Missing 'data' key in {self.data_files[idx]}")
+
+            # Load the flattened normalized data
+            flattened_data = data_dict["data"]
+
+            # Ensure data is in the expected shape for training
+            if flattened_data.dim() != 1:
+                raise ValueError(f"Flattened data in {self.data_files[idx]} is not 1D")
+
+            # Reshape to (1, length) for 1D convolution and return
+            return flattened_data.unsqueeze(0)
         except Exception as e:
-            # logger.error(f"Error loading {self.data_files[idx]}: {e}")
-            raise e
+            raise ValueError(f"Error loading {self.data_files[idx]}: {e}")
+
 
 # =============================================================================
 # Training Function
@@ -110,7 +119,7 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=135659520,
+        input_length=54263808,
         kld_weight=args.kld_weight,
         encoder_channel_list=args.encoder_channels,
         decoder_channel_list=args.decoder_channels
