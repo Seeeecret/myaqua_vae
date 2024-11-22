@@ -4,6 +4,7 @@ Multi-GPU Training Script for VAE using Accelerate Library
 
 This script trains the provided VAE model on multiple GPUs using the Hugging Face Accelerate library.
 It includes mixed-precision training, learning rate scheduling, and logging.
+改自NND的develop分支的VAE
 
 """
 
@@ -26,7 +27,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign5_alter import VAE
+from myVAEdesign3_alter3 import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -214,15 +215,15 @@ def train(args):
             data = data.to(device, non_blocking=True)
 
             # Forward pass
-            recon_data, mu, logvar = model(data)
+            loss, recon_loss, kld_loss = model(data)
 
             # Compute loss
             # loss, recon_loss, kld_loss = model.loss_function(recon_data, data.squeeze(1), mu, logvar)
-            if hasattr(model, 'module'):
-                # data.squeeze(1)改为data
-                loss, recon_loss, kld_loss = model.module.loss_function(recon_data, data, mu, logvar)
-            else:
-                loss, recon_loss, kld_loss = model.loss_function(recon_data, data, mu, logvar)
+            # if hasattr(model, 'module'):
+            #     # data.squeeze(1)改为data
+            #     loss, recon_loss, kld_loss = model.module.loss_function(recon_data, data, mu, logvar)
+            # else:
+            #     loss, recon_loss, kld_loss = model.loss_function(recon_data, data, mu, logvar)
 
             # with torch.set_grad_enabled(True):
             # Backward pass
@@ -241,11 +242,11 @@ def train(args):
             scheduler.step()
 
             total_loss += loss.item()
-            with torch.no_grad():
-                output_min = recon_data.min().item()
-                output_max = recon_data.max().item()
-                logger.info(f"Decoder output range: [{output_min}, {output_max}]")
-                accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
+            # with torch.no_grad():
+            #     output_min = recon_data.min().item()
+            #     output_max = recon_data.max().item()
+            #     logger.info(f"Decoder output range: [{output_min}, {output_max}]")
+            #     accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
 
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
