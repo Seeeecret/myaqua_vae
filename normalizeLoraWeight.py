@@ -4,7 +4,7 @@ import torch
 from safetensors.torch import load_file
 import os
 
-dataset_path = "/mnt/share_disk/dorin/AquaLoRA/train/output_from_beginning/steploras"
+dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights"
 output_path = os.path.join(dataset_path, "normalized_data")
 os.makedirs(output_path, exist_ok=True)
 

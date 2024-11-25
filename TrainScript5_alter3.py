@@ -27,7 +27,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_alter3 import OneDimVAE as VAE
+from myVAEdesign3_alter4 import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -130,7 +130,7 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=54263808,
+        input_length=1695744,
         kld_weight=args.kld_weight,
         # encoder_channel_list=args.encoder_channels,
         # decoder_channel_list=args.decoder_channels
@@ -239,7 +239,6 @@ def train(args):
             optimizer.step()
             # TODO: 改为每一步后都进行学习率调度; 2024.11.15二改
             # scheduler.step()
-            scheduler.step()
 
             total_loss += loss.item()
             # with torch.no_grad():
@@ -251,6 +250,8 @@ def train(args):
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
             # current_lr = scheduler.get_last_lr()[0]
+            recon_loss = recon_loss.mean()  # 或 recon_loss.sum()
+            kld_loss = kld_loss.mean()  # 或 kld_loss.sum()
 
             # Log training progress
             if accelerator.is_main_process and batch_idx % args.log_interval == 0:
@@ -281,6 +282,7 @@ def train(args):
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
         # Step the scheduler
+        scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
