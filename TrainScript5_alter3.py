@@ -130,7 +130,7 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1695744,
+        input_length=27131904,
         kld_weight=args.kld_weight,
         # encoder_channel_list=args.encoder_channels,
         # decoder_channel_list=args.decoder_channels
