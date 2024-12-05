@@ -27,7 +27,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_alter4 import OneDimVAE as VAE
+from myVAEdesign3_rank64 import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -125,27 +125,21 @@ def train(args):
 
     # 初始化用于记录训练和验证损失的列表
     train_loss_list = []
-    # val_loss_list = []
 
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
         input_length=27131904,
         kld_weight=args.kld_weight,
-        # encoder_channel_list=args.encoder_channels,
-        # decoder_channel_list=args.decoder_channels
     ).to(device)
 
     # Prepare datasets and dataloaders
     train_dataset = VAEDataset(args.train_data_dir)
-    # val_dataset = VAEDataset(args.val_data_dir)
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True
     )
-    # val_dataloader = DataLoader(
-    #     val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True
-    # )
+
     total_steps = len(train_dataloader) * args.num_epochs
     warmup_steps = int(total_steps * args.warmup_ratio)
 
@@ -155,8 +149,13 @@ def train(args):
     optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=2e-6)
     # scheduler = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
     # TODO: 改为使用 transformers 提供的支持warm up的学习率调度器
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
+    # scheduler = get_linear_schedule_with_warmup(
+    #     optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
+    # TODO: 从warmup的学习率调度器改为余弦退火调度器，仿照NND的develop分支
+    scheduler = CosineAnnealingLR(
+        optimizer=optimizer,
+        T_max=args.num_epochs,
+    )
     # Calculate total steps for the entire training
     accelerator.print(f"Total training steps: {total_steps}")
     logger.info(f"Total training steps: {total_steps}")
@@ -172,10 +171,6 @@ def train(args):
     if args.checkpoint_dir:
         os.makedirs(args.checkpoint_dir, exist_ok=True)
 
-    # 在模型初始化后注册钩子
-    # for name, param in model.named_parameters():
-    #     if param.requires_grad:
-            # param.register_hook(print_grad(name))
     # Resume from checkpoint if specified
     start_epoch = 0
     if args.resume_from_checkpoint and args.checkpoint_dir:
@@ -216,40 +211,15 @@ def train(args):
 
             # Forward pass
             loss, recon_loss, kld_loss = model(data)
-
-            # Compute loss
-            # loss, recon_loss, kld_loss = model.loss_function(recon_data, data.squeeze(1), mu, logvar)
-            # if hasattr(model, 'module'):
-            #     # data.squeeze(1)改为data
-            #     loss, recon_loss, kld_loss = model.module.loss_function(recon_data, data, mu, logvar)
-            # else:
-            #     loss, recon_loss, kld_loss = model.loss_function(recon_data, data, mu, logvar)
-
-            # with torch.set_grad_enabled(True):
             # Backward pass
             accelerator.backward(loss)
-
-            # 检查梯度是否正常计算
-            # for name, param in model.named_parameters():
-            #     if param.grad is None:
-            #         print(f"Warning: No gradient for parameter {name}")
-            #     elif torch.all(param.grad == 0):
-            #         print(f"Warning: Gradient for parameter {name} is all zeros.")
-
             optimizer.step()
-            # TODO: 改为每一步后都进行学习率调度; 2024.11.15二改
-            # scheduler.step()
+            # if accelerator.is_main_process:
+            #     scheduler.step()
 
             total_loss += loss.item()
-            # with torch.no_grad():
-            #     output_min = recon_data.min().item()
-            #     output_max = recon_data.max().item()
-            #     logger.info(f"Decoder output range: [{output_min}, {output_max}]")
-            #     accelerator.print(f"\nDecoder output range: [{output_min}, {output_max}]\n")
-
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
-            # current_lr = scheduler.get_last_lr()[0]
             recon_loss = recon_loss.mean()  # 或 recon_loss.sum()
             kld_loss = kld_loss.mean()  # 或 kld_loss.sum()
 
@@ -301,45 +271,22 @@ def train(args):
 
         train_loss_list.append(avg_train_loss)
 
-        # if epoch % args.validation_epochs == 0:
-        #     accelerator.print(f"Epoch [{epoch+1}/{args.num_epochs}], Total Loss: {total_loss:.4f}")
-        #     logger.info(f"Epoch [{epoch+1}/{args.num_epochs}], Total Loss: {total_loss:.4f}")
-        #     # Validation
-        #     model.eval()
-        #     val_loss = 0
-        #     with torch.no_grad():
-        #         for data in val_dataloader:
-        #             data = data.to(device, non_blocking=True)
-        #             recon_data, mu, logvar = model(data)
-        #             # loss, _, _ = model.loss_function(recon_data, data.squeeze(1), mu, logvar)
-        #             if hasattr(model, 'module'):
-        #                 loss, _, _ = model.module.loss_function(recon_data, data.squeeze(1), mu, logvar)
-        #             else:
-        #                 loss, _, _ = model.loss_function(recon_data, data.squeeze(1), mu, logvar)
-        #
-        #             val_loss += loss.item()
-        #
-        #         avg_val_loss = val_loss / len(val_dataloader)
-        #         val_loss_list.append(avg_val_loss)
-        #         if accelerator.is_main_process:
-        #             accelerator.print(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
-        #             logger.info(f"Validation Loss after Epoch {epoch+1}: {avg_val_loss:.4f}")
-        #             # 记录验证损失
-        #         metrics = {
-        #             'validation_loss': avg_val_loss,
-        #             'epoch': epoch + 1
-        #         }
-        #         accelerator.log(metrics, step=(epoch + 1) * len(train_dataloader))
 
     # Save the final model
     if args.output_dir and accelerator.is_main_process:
         os.makedirs(args.output_dir, exist_ok=True)
-        model_path = os.path.join(args.output_dir, 'vae_final.pth')
-        accelerator.wait_for_everyone()
-        unwrapped_model = accelerator.unwrap_model(model)
-        torch.save(unwrapped_model.state_dict(), model_path)
-        accelerator.print(f"Model saved to {model_path}")
-        logger.info(f"Model saved to {model_path}")
+
+        # model_path = os.path.join(args.output_dir, 'vae_final.pth')
+        checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_End')
+
+        accelerator.save_state(checkpoint_path)
+        # 下面代码启用后，进度条会卡主，最后报错
+        # TODO: 猜测是wait_for_everyone()方法导致的
+        # accelerator.wait_for_everyone()
+        # unwrapped_model = accelerator.unwrap_model(model)
+        # torch.save(unwrapped_model.state_dict(), model_path)
+        accelerator.print(f"Model saved to {checkpoint_path}")
+        logger.info(f"Model saved to {checkpoint_path}")
 
     # 绘制损失曲线
     plt.figure(figsize=(10, 6))
@@ -368,9 +315,6 @@ def parse_args():
     # Data parameters
     parser.add_argument('--train_data_dir', type=str, required=True,
                         help="Directory containing training data files.")
-    # parser.add_argument('--val_data_dir', type=str, required=True,
-    #                     help="Directory containing validation data files.")
-
 
     # Training parameters
     parser.add_argument('--num_epochs', type=int, default=10,
@@ -389,14 +333,6 @@ def parse_args():
     # decoder channels，输入一个列表
     parser.add_argument('--decoder_channels', type=int, nargs='+',default=None,
                         help="Number of channels in the decoder layers.")
-    # parser.add_argument(
-    #     "--validation_epochs",
-    #     type=int,
-    #     default=1,
-    #     help=(
-    #         "Run dreambooth validation every X epochs. Dreambooth validation consists of running the prompt"
-    #         " `args.validation_prompt` multiple times: `args.num_validation_images`."
-    #     ))
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 
     # Mixed precision

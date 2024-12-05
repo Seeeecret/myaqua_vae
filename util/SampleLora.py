@@ -3,16 +3,20 @@
 import torch
 import os
 from safetensors.torch import load_file
-import myVAEdesign3_rank4
+import sys
+sys.path.append("..")
+
 from myVAEdesign3_rank64 import OneDimVAE as VAE  # 导入您的 VAE 模型
+# from myVAEdesign3_rank4 import OneDimVAE as VAE  # 导入您的 VAE 模型
 
 def main():
     # ==============================
     # 1. 设置模型参数
     # ==============================
-    latent_dim = 256            # 与训练时相同
+    latent_dim = 4096            # 与训练时相同
     input_length = 27131904  # 与训练数据长度相同
-    kld_weight = 0.0005          # 与训练时相同
+    # input_length = 1695744
+    kld_weight = 0.005          # 与训练时相同
 
     # ==============================
     # 2. 创建模型实例并加载权重
@@ -28,7 +32,10 @@ def main():
     ).to(device)
 
     # 加载模型权重
-    checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints/checkpoint_epoch_280/model.safetensors'  # 根据实际路径修改
+    checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints_1204/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints_1202/checkpoint_epoch_400/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints_1127/checkpoint_epoch_400/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_vae_checkpoints_alter3/checkpoint_epoch_280/model.safetensors'  # 根据实际路径修改
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Model checkpoint not found at {checkpoint_path}")
 
@@ -47,14 +54,12 @@ def main():
         # 从标准正态分布中采样潜在向量 z
         generated_data = model.sample(num_samples).to(device)
 
-
-
-
-
     # ==============================
     # 4. 保存生成的数据
     # ==============================
-    output_dir = './generated_samples/rank64_kld_weight_00005/20241126'  # 保存生成数据的目录
+    output_dir = '../generated_samples/rank64_kld_weight_0005/20241204'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank64_kld_weight_0005/20241202'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank4_kld_weight_0005/20241122'  # 保存生成数据的目录
     os.makedirs(output_dir, exist_ok=True)
 
     for i in range(num_samples):

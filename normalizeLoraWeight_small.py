@@ -4,7 +4,7 @@ import torch
 from safetensors.torch import load_file
 import os
 
-dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights"
+dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank4_extracted_lora_weights"
 output_path = os.path.join(dataset_path, "normalized_data")
 os.makedirs(output_path, exist_ok=True)
 
@@ -28,6 +28,8 @@ for file in glob.glob(os.path.join(dataset_path, "*.safetensors")):
         single_lora_dict[key] = {
             "mean": value.mean().item(),
             "std": value.std().item(),
+            'length': value.numel(),
+            "shape": value.shape,
             # "normalized": (value - value.mean()) / value.std()
         }
 

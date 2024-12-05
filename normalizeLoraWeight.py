@@ -26,6 +26,8 @@ for file in glob.glob(os.path.join(dataset_path, "*.safetensors")):
         single_lora_dict[key] = {
             "mean": value.mean().item(),
             "std": value.std().item(),
+            'length': value.numel(),
+            "shape": value.shape,
             "normalized": (value - value.mean()) / value.std()
         }
 
