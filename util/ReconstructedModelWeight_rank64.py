@@ -113,11 +113,10 @@ total_length = sum(lengths)
 print(f"Total length from split_sizes: {total_length}")
 print(f"Flattened data size: {flattened_data.shape[0]}")
 
-# 如果flattened_data不是一个1D张量，则将其展平
+# 如果flattened_data不是一个1D张量，则将其第一维去掉
 if len(flattened_data.shape) > 1:
-    flattened_data = flattened_data.flatten()
-    print(f"Flattened data shape: {flattened_data.shape}")
-
+    flattened_data = flattened_data.squeeze()
+    print(f"Flattened data squeezed to shape: {flattened_data.shape}")
 split_data = torch.split(flattened_data, lengths)
 
 # Initialize a dictionary to store the restored parameters
