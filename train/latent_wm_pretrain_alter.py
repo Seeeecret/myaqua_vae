@@ -114,7 +114,7 @@ class traindataset(Dataset):
 def main(args):
 
     train_loader = torch.utils.data.DataLoader(
-        traindataset(args.dataset, args.random_aug),
+        traindataset(args.dataset, metadata_path="/home/ma-user/work/ymx/data/coco/train2017/metadata.jsonl", random_aug=args.random_aug),
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=4,
