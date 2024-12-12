@@ -6,6 +6,7 @@ file_default = '/mnt/share_disk/dorin/AquaLoRA/train/rank64_output/default_rank6
 file_default_step37432 = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/pytorch_lora_weights_37432.safetensors'
 file_default_step37499 = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/pytorch_lora_weights_37499.safetensors'
 
+SHAO_default = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/bus/adapter_model_31.safetensors'
 rank64_sample_1_1202 = '../output/rank64_alter3_kld_weight_0005_1202/pytorch_lora_weights.safetensors'
 rank64_sample_1_1204 = '../output/rank64_alter3_kld_weight_0005_1202/pytorch_lora_weights.safetensors'
 
@@ -16,12 +17,19 @@ rank4_file_default_step37499 = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_
 
 file_reconstructed = '/mnt/share_disk/dorin/AquaLoRA/train/rank64_output/reconstructed_rank64/pytorch_lora_weights.safetensors'
 file_reconstructed_2 = '/mnt/share_disk/dorin/AquaLoRA/output/rank64_alter3_kld_weight_0005/pytorch_lora_weights.safetensors'
+
+SHAO_reconstructed = '/mnt/share_disk/dorin/AquaLoRA/output/SHAO_alter3_kld_weight_0005_1208/adapter_model.safetensors'
+SHAO_reconstructed_1209 = '/mnt/share_disk/dorin/AquaLoRA/output/SHAO_alter3_kld_weight_0005_1209/adapter_model.safetensors'
+
+encodeDecodeData_SHAO_path = '/mnt/share_disk/dorin/AquaLoRA/output/encodedecode_SHAO_alter3_kld_weight_0005_1208/adapter_model.safetensors'
+encodeDecodeData_SHAO_path_NoNor_1209 = '/mnt/share_disk/dorin/AquaLoRA/output/encodedecode_SHAO_alter3_kld_weight_0005_1209/adapter_model.safetensors'
+
 rank4_file_reconstructed = '/mnt/share_disk/dorin/AquaLoRA/output/rank4_alter3_kld_weight_0005/pytorch_lora_weights.safetensors'
 
 test_reconstructed_step37432 = '../output/rank64_alter3_kld_weight_00005/test_pytorch_lora_weights.safetensors'
-# 加载两个 safetensors 文件
-default_state_dict = load_file(file_default_step37499, device='cuda')
-reconstructed_state_dict = load_file(encodeDecodeData_path, device='cuda')
+# TODO: 选择要加载的两个 safetensors 文件
+default_state_dict = load_file(SHAO_default, device='cuda')
+reconstructed_state_dict = load_file(encodeDecodeData_SHAO_path_NoNor_1209, device='cuda')
 
 # 比较文件的结构
 def compare_state_dicts(dict1, dict2):

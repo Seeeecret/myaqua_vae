@@ -63,10 +63,15 @@ rank64_kld_weight_0005_path1_1204 = './generated_samples/rank64_kld_weight_0005/
 rank64_kld_weight_0005_path2_1204 = './generated_samples/rank64_kld_weight_0005/20241204/sample_2.pth'
 rank64_kld_weight_0005_path3_1204 = './generated_samples/rank64_kld_weight_0005/20241204/sample_2.pth'
 
+SHAO_kld_weight_0005_path1_1208 = './generated_samples/SHAO_kld_weight_0005/20241208/sample_1.pth'
+SHAO_kld_weight_0005_path2_1208 = './generated_samples/SHAO_kld_weight_0005/20241208/sample_2.pth'
+SHAO_kld_weight_0005_path3_1208 = './generated_samples/SHAO_kld_weight_0005/20241208/sample_3.pth'
+
 encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/rank64_alter3_kld_weight_0005_1204/reconstructed_pytorch_lora_weights_37499/reconstructed_data.pth'
+SHAO_encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/SHAO_alter3_kld_weight_00005_1208/reconstructed_normalized_adapter_model_31/reconstructed_data.pth'
 
 # 选择采样的数据路径
-reconstructed_lora_vector = torch.load(encodeDecodeNormalizedData_path)
+reconstructed_lora_vector = torch.load(SHAO_kld_weight_0005_path1_1208)
 
 # 打印重建模型参数信息
 reconstructed_lora_param_info = {}
@@ -139,7 +144,7 @@ for i, key in enumerate(data_keys):
 import time
 localtime = time.asctime(time.localtime(time.time()))
 # Save the restored state_dict to a file
-save_path = '../output/encodedecode_rank64_alter3_kld_weight_0005_1205'
+save_path = '../output/encodedecode_SHAO_alter3_kld_weight_0005_1208'
 if not os.path.exists(save_path):
     os.makedirs(save_path)
 # torch.save(restored_state_dict, './output/encodedecode_rank64_alter3_kld_weight_0005_1205/restored_state_dict.pth')
