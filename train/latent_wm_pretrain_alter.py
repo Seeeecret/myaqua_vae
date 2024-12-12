@@ -9,9 +9,9 @@ from PIL import Image
 from tqdm.auto import tqdm
 import numpy as np
 import argparse
+import json
 
 import torch
-torch.hub.set_dir("../cache/torch/hub")
 
 import torch.nn.functional as F
 import torchvision.transforms as T
@@ -58,10 +58,37 @@ def base_augment(image):
     return image
 
 class traindataset(Dataset):
-    def __init__(self, root, random_aug=True):
+    # def __init__(self, root, random_aug=True):
+    #     self.root = root
+    #     self.image_files = glob.glob(root + "/*.png") + glob.glob(root + "/*.jpg")
+    #     self.random_aug = random_aug
+    def __init__(self, root, metadata_path, random_aug=True):
+        """
+        Args:
+            root (str): 图片的根目录路径。
+            metadata_path (str): metadata.jsonl 文件路径。
+            random_aug (bool): 是否应用随机增强。
+        """
         self.root = root
-        self.image_files = glob.glob(root + "/*.png") + glob.glob(root + "/*.jpg")
         self.random_aug = random_aug
+
+        # 加载 metadata.jsonl 文件
+        self.image_files = self._load_metadata(metadata_path)
+
+    def _load_metadata(self, metadata_path):
+        """
+        从 metadata.jsonl 中读取 file_name 字段，生成完整图片路径。
+        """
+        image_files = []
+        with open(metadata_path, 'r') as f:
+            for line in f:
+                data = json.loads(line.strip())
+                file_name = data["file_name"]
+                image_path = os.path.join(self.root, file_name)
+                # 确保文件存在于目录中
+                if os.path.exists(image_path):
+                    image_files.append(image_path)
+        return image_files
 
     def __len__(self):
         return len(self.image_files)
