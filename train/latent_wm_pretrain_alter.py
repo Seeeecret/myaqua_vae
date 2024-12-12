@@ -88,6 +88,7 @@ class traindataset(Dataset):
                 # 确保文件存在于目录中
                 if os.path.exists(image_path):
                     image_files.append(image_path)
+                    print(f"Found image: {image_path}")
         return image_files
 
     def __len__(self):
