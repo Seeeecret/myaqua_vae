@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--lora", type=str, default=None)
     parser.add_argument("--lora_scale", type=float, default=1.)
     parser.add_argument("--prompt_path", type=str, default="prompt.txt")
-    parser.add_argument("--model", type=str, default="./checkpoints/stable-diffusion-v1-5")
+    parser.add_argument("--model", type=str, default="../checkpoints/stable-diffusion-v1-5")
     parser.add_argument("--output_dir", type=str, default="output")
 
     parser.add_argument("--width", type=int, default=512)

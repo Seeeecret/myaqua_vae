@@ -6,9 +6,12 @@ from safetensors.torch import load_file
 import sys
 sys.path.append("..")
 # TODO: 导入 VAE 模型
-from myVAEdesign3_SHAO import OneDimVAE as VAE  # 导入您的 VAE 模型
-# from myVAEdesign3_rank64 import OneDimVAE as VAE  # 导入您的 VAE 模型
-# from myVAEdesign3_rank4 import OneDimVAE as VAE  # 导入您的 VAE 模型
+# from myVAEdesign3_rank8_partial import OneDimVAE as VAE  # 导入 VAE 模型
+from myVAEdesign3_rank8 import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_rank16 import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_SHAO import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_rank64 import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_rank4 import OneDimVAE as VAE  # 导入 VAE 模型
 
 def main():
     # ==============================
@@ -16,7 +19,10 @@ def main():
     # ==============================
     # TODO: 设置模型参数
     latent_dim = 4096            # 与训练时相同
-    input_length = 1929928  # 与训练数据长度相同
+    # input_length = 1494528  # 与训练数据长度相同
+    input_length = 3391488  # 与训练数据长度相同
+    # input_length = 6782976  # 与训练数据长度相同
+    # input_length = 1929928  # 与训练数据长度相同
     # input_length = 27131904  # 与训练数据长度相同
     # input_length = 1695744
     kld_weight = 0.005          # 与训练时相同
@@ -36,7 +42,15 @@ def main():
 
     # 加载模型权重
     # TODO: 设置模型权重的路径
-    checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/SHAO_lora_vae_checkpoints_1209/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1216_8000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1216_4000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_8000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_800epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1215/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank16_8bits_lora_vae_checkpoints_1214/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/SHAO_lora_vae_checkpoints_1209/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/SHAO_lora_vae_checkpoints_1208/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints_1204/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank_64_lora_vae_checkpoints_1202/checkpoint_epoch_400/model.safetensors'  # 根据实际路径修改
@@ -64,7 +78,12 @@ def main():
     # 4. 保存生成的数据
     # ==============================
     # TODO: 设置保存生成数据的目录
-    output_dir = '../generated_samples/SHAO_kld_weight_0005/20241209'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216'  # 保存生成数据的目录
+    output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_800epoch_partial/20241219'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/SHAO_kld_weight_0005/20241209'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank64_kld_weight_0005/20241204'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank64_kld_weight_0005/20241202'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank4_kld_weight_0005/20241122'  # 保存生成数据的目录
@@ -73,7 +92,7 @@ def main():
     for i in range(num_samples):
         sample = generated_data[i].cpu()
         sample_path = os.path.join(output_dir, f'sample_{i + 1}.pth')
-        sample = sample[:input_length]  # sample现在为 [1, 1929928] 的张量
+        sample = sample[:input_length]
         torch.save(sample, sample_path)
         print(f"Sample {i + 1} saved to {sample_path}")
 

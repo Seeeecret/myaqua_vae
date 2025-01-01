@@ -27,7 +27,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank4 import OneDimVAE as VAE
+from myVAEdesign3_rank8 import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -130,8 +130,9 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1695744,
+        input_length=3391488,
         kld_weight=args.kld_weight,
+        manual_std=args.manual_std,
     ).to(device)
 
     # Prepare datasets and dataloaders
@@ -155,7 +156,7 @@ def train(args):
     # TODO: 从warmup的学习率调度器改为余弦退火调度器，仿照NND的develop分支
     scheduler = CosineAnnealingLR(
         optimizer=optimizer,
-        T_max=args.num_epochs,
+        T_max=args.num_epochs * 2,
     )
     # Calculate total steps for the entire training
     accelerator.print(f"Total training steps: {total_steps}")
@@ -197,8 +198,8 @@ def train(args):
     for epoch in range(start_epoch, args.num_epochs):
         model.train()
         total_loss = 0
-        total_recon_loss = 0  # 新增：累积重建损失
-        total_kld_loss = 0  # 新增：累积KLD损失
+        total_recon_loss = 0  # 累积重建损失
+        total_kld_loss = 0  # 累积KLD损失
 
         # Use progress bar only in the main process
         if accelerator.is_main_process:
@@ -217,8 +218,7 @@ def train(args):
             # Backward pass
             accelerator.backward(loss)
             optimizer.step()
-            # if accelerator.is_main_process:
-            #     scheduler.step()
+
 
             total_loss += loss.item()
             # Get current learning rate
@@ -256,8 +256,6 @@ def train(args):
             }
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
-        # Step the scheduler
-        scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
@@ -278,6 +276,8 @@ def train(args):
         train_loss_list.append(avg_train_loss)
         train_recon_loss_list.append(avg_recon_loss)  # 记录平均重建损失
         train_kld_loss_list.append(avg_kld_loss)  # 记录平均KLD损失
+
+        scheduler.step()  # 每个epoch结束后调用 scheduler.step()，更新学习率
 
     # Save the final model
     if args.output_dir and accelerator.is_main_process:
@@ -308,7 +308,29 @@ def train(args):
     plt.savefig(os.path.join(args.output_dir, 'loss_curve1.png'))
     plt.show()
 
-    # 新增：绘制包含 loss, recon_loss, kld_loss 的图像
+    # 绘制recon_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Recon_Loss')
+    plt.title('Reconstruction Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'recon_loss_curve.png'))
+    plt.show()
+
+    # 绘制kld_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_kld_loss_list, label='KLD Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('KLD_Loss')
+    plt.title('KLD Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'kld_loss_curve.png'))
+    plt.show()
+
+    # 绘制包含 loss, recon_loss, kld_loss 的图像
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Total Loss')
     plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
@@ -374,6 +396,8 @@ def parse_args():
                         help="Save checkpoints every N epochs.")
     parser.add_argument('--resume_from_checkpoint', action='store_true',
                         help="Resume training from the latest checkpoint.")
+
+    parser.add_argument('--manual_std', type=str, default=None)
 
     # Seed for reproducibility (optional)
     parser.add_argument('--seed', type=int, default=2024,

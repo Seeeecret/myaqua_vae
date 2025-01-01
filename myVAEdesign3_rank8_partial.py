@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 # 完全仿照NND的develop分支改造，韵版
 class OneDimVAE(nn.Module):
-    def __init__(self, latent_dim, input_length=1929928, kernel_size=7, divide_slice_length=4096, kld_weight=0.005):
+    def __init__(self, latent_dim, input_length=1494528, kernel_size=7, divide_slice_length=4096, kld_weight=0.005):
         super(OneDimVAE, self).__init__()
         d_model = [8, 16, 32, 64, 128, 256, 256, 128, 64, 32, 16, 8]
         self.d_model = d_model
@@ -132,6 +132,10 @@ class OneDimVAE(nn.Module):
         # recons_loss = F.mse_loss(recons, input)
 
         padded_x = self.pad_sequence(x)
+        # 如果recons有3个维度，那么就把它压缩到2个维度, 保证和padded_x的维度一致,因为此时recons的第二个维度一般是1
+        if recons is not None and recons.dim() == 3:
+            recons = recons.squeeze(1)
+
         recons_loss = F.mse_loss(recons, padded_x, reduction='mean')
 
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)

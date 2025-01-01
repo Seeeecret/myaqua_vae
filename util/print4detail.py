@@ -2,7 +2,8 @@ import torch
 import os
 
 # 数据集路径
-output_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/normalized_data"
+# output_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/normalized_data"
+output_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/bus/normalized_data"
 
 # 列出所有保存的 .pth 文件
 files = [os.path.join(output_path, f) for f in os.listdir(output_path) if f.endswith(".pth")]

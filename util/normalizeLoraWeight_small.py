@@ -3,8 +3,10 @@ import glob
 import torch
 from safetensors.torch import load_file
 import os
-# 将safetensors格式的权重正则化处理为pth格式的文件
-dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/bus"
+# TODO: 将safetensors格式的权重正则化处理为pth格式的文件
+# dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/bus"
+# dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank16_8bits_extracted_lora_weights"
+dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights"
 output_path = os.path.join(dataset_path, "normalized_data")
 os.makedirs(output_path, exist_ok=True)
 
