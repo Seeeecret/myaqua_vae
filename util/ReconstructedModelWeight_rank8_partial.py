@@ -71,24 +71,26 @@ rank16_kld_weight_0005_path1_1214 = '../generated_samples/rank16_8bits_kld_weigh
 rank16_kld_weight_0005_path2_1214 = '../generated_samples/rank16_8bits_kld_weight_0005/20241214/sample_2.pth'
 rank16_kld_weight_0005_path3_1214 = '../generated_samples/rank16_8bits_kld_weight_0005/20241214/sample_3.pth'
 
-rank8_8bits_kld_weight_0005_150_path1_1225 = "../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225/sample_1.pth"
-rank8_8bits_kld_weight_0005_150_path2_1225 = "../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225/sample_2.pth"
-rank8_8bits_kld_weight_0005_150_path3_1225 = "../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225/sample_3.pth"
-
 rank8_8bits_kld_weight_0005_path1_1215 = '../generated_samples/rank8_8bits_kld_weight_0005/20241215/sample_1.pth'  # 保存生成数据的目录
 rank8_8bits_kld_weight_0005_path2_1215 = '../generated_samples/rank8_8bits_kld_weight_0005/20241215/sample_2.pth'  # 保存生成数据的目录
 rank8_8bits_kld_weight_0005_path3_1215 = '../generated_samples/rank8_8bits_kld_weight_0005/20241215/sample_3.pth'  # 保存生成数据的目录
 
 rank8_8bits_kld_weight_0005_4000_path1_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216/sample_1.pth'  # 保存生成数据的目录
 rank8_8bits_kld_weight_0005_4000_path2_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216/sample_2.pth'  # 保存生成数据的目录
-rank8_8bits_kld_weight_0005_4000_path2_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216/sample_3.pth'  # 保存生成数据的目录
+rank8_8bits_kld_weight_0005_4000_path3_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216/sample_3.pth'  # 保存生成数据的目录
 
 
 rank8_8bits_kld_weight_0005_8000_path1_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216/sample_1.pth'  # 保存生成数据的目录
 rank8_8bits_kld_weight_0005_8000_path2_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216/sample_2.pth'  # 保存生成数据的目录
-rank8_8bits_kld_weight_0005_8000_path2_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216/sample_3.pth'  # 保存生成数据的目录
+rank8_8bits_kld_weight_0005_8000_path3_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216/sample_3.pth'  # 保存生成数据的目录
 
-rank8_8bits_kld000005_0102_800epoch_path1 = '../generated_samples/rank8_8bits_kld000005_0102_800epoch/20250102/sample_1.pth'  # 保存生成数据的目录
+rank8_8bits_partial_kld_weight_0005_150_path1_1219 = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch_partial/20241219/sample_1.pth'  # 保存生成数据的目录
+rank8_8bits_partial_kld_weight_0005_150_path2_1219 = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch_partial/20241219/sample_2.pth'  # 保存生成数据的目录
+rank8_8bits_partial_kld_weight_0005_150_path3_1219 = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch_partial/20241219/sample_3.pth'  # 保存生成数据的目录
+
+rank8_8bits_partial_kld_weight_0005_8000_path1_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219/sample_1.pth'  # 保存生成数据的目录
+rank8_8bits_partial_kld_weight_0005_8000_path2_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219/sample_2.pth'  # 保存生成数据的目录
+rank8_8bits_partial_kld_weight_0005_8000_path3_1216 = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219/sample_3.pth'  # 保存生成数据的目录
 
 
 encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/rank64_alter3_kld_weight_0005_1204/reconstructed_pytorch_lora_weights_37499/reconstructed_data.pth'
@@ -96,7 +98,7 @@ SHAO_encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/SH
 rank8_encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/rank8_8bits_lora_vae_checkpoints_1215/reconstructed_pytorch_lora_weights_18750/reconstructed_data.pth'
 
 # 选择采样的数据路径
-reconstructed_lora_vector = torch.load(rank8_8bits_kld_weight_0005_150_path1_1225)
+reconstructed_lora_vector = torch.load(rank8_8bits_partial_kld_weight_0005_150_path1_1219)
 
 # 打印重建模型参数信息
 reconstructed_lora_param_info = {}
@@ -123,8 +125,9 @@ print(reconstructed_lora_vector[:1000])
 # data_file = random.choice(data_files)
 
 # Load the data dictionary from the selected file
-#  TODO : 设置标准数据路径
-data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
+#  TODO : 设置数据路径
+data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights/normalized_partial_data/normalized_pytorch_lora_weights_18750.pth"
+# data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
 # data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank16_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
 # data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_37499.pth"
 
@@ -174,7 +177,8 @@ localtime = time.asctime(time.localtime(time.time()))
 # Save the restored state_dict to a file
 # TODO: 修改为自己的输出路径
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1216_8000epoch'
-save_path = '../output/rank8_8bits_kld000005_0102_800epoch'
+save_path = '../output/rank8_8bits_partial_lora_vae_checkpoints_1219_8000epoch'
+# save_path = '../output/rank8_8bits_partial_lora_vae_checkpoints_1219_150epoch'
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1216_4000epoch'
 # save_path = '../output/encodedecode_rank8_8bits_lora_vae_checkpoints_1215'
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1215'

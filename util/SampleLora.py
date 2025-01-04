@@ -25,12 +25,13 @@ def main():
     # input_length = 1929928  # 与训练数据长度相同
     # input_length = 27131904  # 与训练数据长度相同
     # input_length = 1695744
-    kld_weight = 0.005          # 与训练时相同
+    # kld_weight = 0.005          # 与训练时相同
+    kld_weight = 0.00005          # 与训练时相同
 
     # ==============================
     # 2. 创建模型实例并加载权重
     # ==============================
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     # 创建模型实例
@@ -45,7 +46,9 @@ def main():
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1216_8000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1216_4000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_8000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
-    checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    checkpoint_path = '../output/rank8_8bits_kld000005_0102_800epoch/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_800epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1215/checkpoint_End/model.safetensors'  # 根据实际路径修改
@@ -69,7 +72,7 @@ def main():
     # ==============================
     # 3. 采样生成数据
     # ==============================
-    num_samples = 3  # 生成样本的数量
+    num_samples = 1  # 生成样本的数量
     with torch.no_grad():
         # 从标准正态分布中采样潜在向量 z
         generated_data = model.sample(num_samples).to(device)
@@ -79,7 +82,8 @@ def main():
     # ==============================
     # TODO: 设置保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216'  # 保存生成数据的目录
-    output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225'  # 保存生成数据的目录
+    output_dir = '../generated_samples/rank8_8bits_kld000005_0102_800epoch/20250102'  # 保存生成数据的目录
+    # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_800epoch_partial/20241219'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_4000epoch/20241216'  # 保存生成数据的目录

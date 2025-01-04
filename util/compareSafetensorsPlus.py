@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 # TODO: 定义输出目录
-output_dir = '/mnt/share_disk/dorin/AquaLoRA/output/compare/rank8_8bits_150epoch'
+output_dir = '/mnt/share_disk/dorin/AquaLoRA/output/compare/rank8_8bits_kld000005_0102_800epoch'
 
 # 创建输出目录（如果不存在）
 # output_dir = '/mnt/share_disk/dorin/AquaLoRA/output/compare'
@@ -44,6 +44,7 @@ encodeDecodeData_SHAO_path_NoNor_1209 = '/mnt/share_disk/dorin/AquaLoRA/output/e
 rank4_file_reconstructed = '/mnt/share_disk/dorin/AquaLoRA/output/rank4_alter3_kld_weight_0005/pytorch_lora_weights.safetensors'
 
 
+rank8_8bits_kld000005_0102_800epoch_sample = '../output/rank8_8bits_kld000005_0102_800epoch/pytorch_lora_weights.safetensors'
 rank8_8bits_file_150epoch_sample = '/mnt/share_disk/dorin/AquaLoRA/output/rank8_8bits_lora_vae_checkpoints_1225_150epoch/pytorch_lora_weights.safetensors'
 rank8_8bits_file_800epoch_sample = '/mnt/share_disk/dorin/AquaLoRA/output/rank8_8bits_lora_vae_checkpoints_1215/pytorch_lora_weights.safetensors'
 rank8_8bits_file_8000epoch_sample = '/mnt/share_disk/dorin/AquaLoRA/output/rank8_8bits_lora_vae_checkpoints_1216_8000epoch/pytorch_lora_weights.safetensors'
@@ -56,7 +57,7 @@ test_reconstructed_step37432 = '../output/rank64_alter3_kld_weight_00005/test_py
 
 # TODO: 选择要加载的两个 safetensors 文件
 default_state_dict = load_file(rank8_8bits_default, device='cuda')
-reconstructed_state_dict = load_file(rank8_8bits_file_150epoch_sample, device='cuda')
+reconstructed_state_dict = load_file(rank8_8bits_kld000005_0102_800epoch_sample, device='cuda')
 
 
 # 比较文件的结构

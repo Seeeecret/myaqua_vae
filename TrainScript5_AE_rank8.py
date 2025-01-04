@@ -29,7 +29,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank8 import OneDimVAE as VAE
+from AEdesign3_rank8 import OneDimAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -294,6 +294,9 @@ def train(args):
         # accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
         weights_path = os.path.join(checkpoint_path, 'model.safetensors')
+
+        os.makedirs(checkpoint_path, exist_ok=True)
+
         save_file(unwrapped_model.state_dict(), weights_path)
 
         accelerator.print(f"Model saved to {weights_path}")
