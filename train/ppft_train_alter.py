@@ -901,6 +901,8 @@ def main(args):
     else:
         caption_column = args.caption_column
         if caption_column not in column_names:
+            print("Dataset column names:", column_names)
+
             raise ValueError(
                 f"--caption_column' value '{args.caption_column}' needs to be one of: {', '.join(column_names)}"
             )
@@ -1031,6 +1033,18 @@ def main(args):
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
             accelerator.load_state(os.path.join(args.output_dir, path))
+            unet = accelerator.unwrap_model(unet)
+
+            for name, module in unet.named_modules():
+                if isinstance(module, LoRACompatibleConv):
+                    module.forward = types.MethodType(CustomLoRACompatibleConvforward, module)
+                    if module.lora_layer is not None:
+                        module.lora_layer.forward = types.MethodType(CustomLoRAConv2dLayerforward, module.lora_layer)
+                elif isinstance(module, LoRACompatibleLinear):
+                    module.forward = types.MethodType(CustomLoRACompatibleLinearforward, module)
+                    if module.lora_layer is not None:
+                        module.lora_layer.forward = types.MethodType(CustomLoRALinearLayerforward, module.lora_layer)
+
             global_step = int(path.split("-")[1])
 
             resume_global_step = global_step * args.gradient_accumulation_steps

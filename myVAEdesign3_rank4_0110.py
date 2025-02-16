@@ -3,20 +3,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# 完全仿照NND的develop分支改造，不用
+
+# 完全仿照NND的develop分支改造，韵版
 class OneDimVAE(nn.Module):
-    def __init__(self, latent_dim, input_length, kernel_size=7, divide_slice_length=64,kld_weight=0.005):
+    def __init__(self, latent_dim, input_length, kernel_size=7, divide_slice_length=4096, kld_weight=0.005, **kwargs):
         super(OneDimVAE, self).__init__()
-        # d_model = [16, 32, 64, 128, 256, 256, 128, 64, 32, 16]
         d_model = [8, 16, 32, 64, 128, 256, 256, 128, 64, 32, 16, 8]
         self.d_model = d_model
         self.d_latent = latent_dim
         self.kld_weight = kld_weight
+        self.divide_slice_length = divide_slice_length
+        self.initial_input_length = input_length
         # confirm self.last_length
         input_length = (input_length // divide_slice_length + 1) * divide_slice_length \
-                if input_length % divide_slice_length != 0 else input_length
+            if input_length % divide_slice_length != 0 else input_length
         assert input_length % int(2 ** len(d_model)) == 0, \
-                f"Please set divide_slice_length to {int(2 ** len(d_model))}."
+            f"Please set divide_slice_length to {int(2 ** len(d_model))}."
+
+        self.adjusted_input_length = input_length
         self.last_length = input_length // int(2 ** len(d_model))
 
         # Build Encoder
@@ -24,7 +28,7 @@ class OneDimVAE(nn.Module):
         in_dim = 1
         for h_dim in d_model:
             modules.append(nn.Sequential(
-                nn.Conv1d(in_dim, h_dim, kernel_size, 2, kernel_size//2),
+                nn.Conv1d(in_dim, h_dim, kernel_size, 2, kernel_size // 2),
                 nn.BatchNorm1d(h_dim),
                 nn.LeakyReLU()
             ))
@@ -40,16 +44,16 @@ class OneDimVAE(nn.Module):
         d_model.reverse()
         for i in range(len(d_model) - 1):
             modules.append(nn.Sequential(
-                nn.ConvTranspose1d(d_model[i], d_model[i+1], kernel_size, 2, kernel_size//2, output_padding=1),
+                nn.ConvTranspose1d(d_model[i], d_model[i + 1], kernel_size, 2, kernel_size // 2, output_padding=1),
                 nn.BatchNorm1d(d_model[i + 1]),
                 nn.ELU(),
             ))
         self.decoder = nn.Sequential(*modules)
         self.final_layer = nn.Sequential(
-            nn.ConvTranspose1d(d_model[-1], d_model[-1], kernel_size, 2, kernel_size//2, output_padding=1),
+            nn.ConvTranspose1d(d_model[-1], d_model[-1], kernel_size, 2, kernel_size // 2, output_padding=1),
             nn.BatchNorm1d(d_model[-1]),
             nn.ELU(),
-            nn.Conv1d(d_model[-1], 1, kernel_size, 1, kernel_size//2),
+            nn.Conv1d(d_model[-1], 1, kernel_size, 1, kernel_size // 2),
         )
 
     def pad_sequence(self, input_seq):
@@ -75,6 +79,10 @@ class OneDimVAE(nn.Module):
             input = input[:, None, :]  # Add channel dimension
         elif input.dim() == 3:  # [batch_size, 1, sequence_length]
             pass  # Input shape is already correct
+
+            # 填充序列
+        input = self.pad_sequence(input)  # [B, 1, adjusted_input_length]
+
         result = self.encoder(input)
         # print(result.shape)
         result = torch.flatten(result, start_dim=1)
@@ -103,6 +111,8 @@ class OneDimVAE(nn.Module):
     def reparameterize(self, mu, log_var, **kwargs):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
+        if kwargs.get("manual_std") is not None:
+            std = kwargs.get("manual_std")
         return eps * std + mu
 
     def encode_decode(self, input, **kwargs):
@@ -118,12 +128,23 @@ class OneDimVAE(nn.Module):
 
     def forward(self, x, **kwargs):
         recons, input, mu, log_var = self.encode_decode(input=x, **kwargs)
-        recons = recons.view(input.shape)  # 调整 recons 的形状
+        # recons = recons.view(input.shape)  # 调整 recons 的形状
+        # recons = recons.view(x.size(0), self.adjusted_input_length)  # 调整 recons 的形状
+
         # recons_loss = F.mse_loss(recons, input)
-        recons_loss = F.mse_loss(recons, input)
+
+        padded_x = self.pad_sequence(x)
+        # 如果recons有3个维度，那么就把它压缩到2个维度, 保证和padded_x的维度一致,因为此时recons的第二个维度一般是1
+        if recons is not None and recons.dim() == 3:
+            recons = recons.squeeze(1)
+        if padded_x.dim() == 3:
+            padded_x = padded_x.squeeze(1)
+
+
+        recons_loss = F.mse_loss(input=recons, target=padded_x, reduction='mean')
 
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)
-        loss = recons_loss +self.kld_weight * kld_loss
+        loss = recons_loss + self.kld_weight * kld_loss
 
         return loss, recons_loss, kld_loss
 

@@ -1,4 +1,3 @@
-
 """
 Multi-GPU Training Script for VAE using Accelerate Library
 
@@ -7,7 +6,6 @@ It includes mixed-precision training, learning rate scheduling, and logging.
 改自NND的develop分支的VAE
 
 """
-
 import os
 import argparse
 import logging
@@ -30,7 +28,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank8_partial import OneDimVAE as VAE
+from myVAEdesign3_SHAO import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -135,7 +133,8 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1494528,
+        # input_length=1929928,
+        input_length=797184,
         kld_weight=args.kld_weight,
     ).to(device)
 
@@ -202,8 +201,8 @@ def train(args):
     for epoch in range(start_epoch, args.num_epochs):
         model.train()
         total_loss = 0
-        total_recon_loss = 0  # 累积重建损失
-        total_kld_loss = 0  # 累积KLD损失
+        total_recon_loss = 0  # 新增：累积重建损失
+        total_kld_loss = 0  # 新增：累积KLD损失
 
         # Use progress bar only in the main process
         if accelerator.is_main_process:
@@ -227,8 +226,8 @@ def train(args):
             total_loss += loss.item()
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
-            recon_loss = recon_loss.mean()  #  recon_loss.sum()
-            kld_loss = kld_loss.mean()  #  kld_loss.sum()
+            recon_loss = recon_loss.mean()  # 或 recon_loss.sum()
+            kld_loss = kld_loss.mean()  # 或 kld_loss.sum()
             total_recon_loss += recon_loss.item()  # 累积重建损失
             total_kld_loss += kld_loss.item()  # 累积KLD损失
 
@@ -288,7 +287,7 @@ def train(args):
         os.makedirs(args.output_dir, exist_ok=True)
 
         # model_path = os.path.join(args.output_dir, 'vae_final.pth')
-        checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_End')
+        checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_End_CVAE')
 
         # accelerator.save_state(checkpoint_path)
         # 下面代码启用后，进度条会卡住，最后报错
@@ -376,7 +375,7 @@ def parse_args():
     parser.add_argument('--kld_weight', type=float, default=0.020,
                         help="Weight for the KL divergence loss.")
     # input_length
-    parser.add_argument('--input_length', type=int, default=3391488,
+    parser.add_argument('--input_length', type=int, default=797184,
                         help="Length of the input data.")
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 
@@ -390,13 +389,13 @@ def parse_args():
     parser.add_argument('--log_interval', type=int, default=1,
                         help="How often to log training progress (in batches).")
     # 日志输出目录
-    parser.add_argument('--log_dir', type=str, default='./logs/trainlog.log')
-    parser.add_argument('--output_dir', type=str, default='./output2/new',
+    parser.add_argument('--log_dir', type=str, default='./Neural-Network-Parameter-Diffusion-main/logs/trainlog_cvae.log')
+    parser.add_argument('--output_dir', type=str, default='./Neural-Network-Parameter-Diffusion-main/output5_cvae/new_',
                         help="Directory to save the final model.")
     # Checkpoint parameters
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/lora_vae_checkpoints/',
+    parser.add_argument('--checkpoint_dir', type=str, default='./Neural-Network-Parameter-Diffusion-main/checkpoints/lora_cvae_checkpoints/',
                         help="Directory to save/load checkpoints.")
-    parser.add_argument('--save_checkpoint_epochs', type=int, default=20,
+    parser.add_argument('--save_checkpoint_epochs', type=int, default=1000,
                         help="Save checkpoints every N epochs.")
     parser.add_argument('--resume_from_checkpoint', action='store_true',
                         help="Resume training from the latest checkpoint.")

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# 完全仿照NND的develop分支改造，韵版
+# 完全仿照NND的develop分支改造
 class OneDimVAE(nn.Module):
     def __init__(self, latent_dim, input_length=3391488, kernel_size=7, divide_slice_length=64, kld_weight=0.005, **kwargs):
         super(OneDimVAE, self).__init__()

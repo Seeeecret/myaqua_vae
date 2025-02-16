@@ -4,7 +4,7 @@ from safetensors.torch import load_file
 import os
 
 # 数据集路径，请根据实际情况修改
-dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights"
+dataset_path = "/data/Tsinghua/wuzy/rank4_bits4_output_0203"
 output_path = os.path.join(dataset_path, "normalized_partial_data")
 os.makedirs(output_path, exist_ok=True)
 
@@ -14,13 +14,12 @@ for file in glob.glob(os.path.join(dataset_path, "*.safetensors")):
     single_lora_weights = []
 
     for key, value in model.items():
-        # 根据第二份代码中的逻辑，仅对特定条件的参数进行处理
+        # 仅对特定条件的参数进行处理
         # 条件：
         # 1. key中包含'unet'
         # 2. 对'attn' 或 'ff'层中包含'down.weight'的参数处理
         # 3. 对'proj_in' 或 'proj_out'层中包含'down.weight'的参数处理
-        # 严格来说，第二份代码中对上、下行矩阵的处理方式略有不同，
-        # 此处仅参考原第一份代码的处理方式，对选定参数进行标准化。
+
         if 'unet' in key:
             if (('attn' in key or 'ff' in key) and 'down.weight' in key) or \
                (('proj_in' in key or 'proj_out' in key) and 'down.weight' in key):
@@ -29,7 +28,7 @@ for file in glob.glob(os.path.join(dataset_path, "*.safetensors")):
                 std_val = value.std()
                 # 避免除以0的情况
                 if std_val == 0:
-                    std_val = 1e-10
+                    std_val = 1e-11
                 normalized = (value - mean_val) / std_val
 
                 # 将处理结果保存

@@ -4,34 +4,42 @@ import torch
 import os
 from safetensors.torch import load_file
 import sys
-sys.path.append("..")
+sys.path.append("../")
 # TODO: 导入 VAE 模型
 # from myVAEdesign3_rank8_partial import OneDimVAE as VAE  # 导入 VAE 模型
-from myVAEdesign3_rank8 import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_rank4 import OneDimVAE as VAE  # 导入 VAE 模型
+
+# from myVAEdesign3_rank4_0110 import OneDimVAE as VAE
+
 # from myVAEdesign3_rank16 import OneDimVAE as VAE  # 导入 VAE 模型
 # from myVAEdesign3_SHAO import OneDimVAE as VAE  # 导入 VAE 模型
+# from myVAEdesign3_rank8_partial import OneDimVAE as VAE  # 导入 VAE 模型
 # from myVAEdesign3_rank64 import OneDimVAE as VAE  # 导入 VAE 模型
-# from myVAEdesign3_rank4 import OneDimVAE as VAE  # 导入 VAE 模型
+from myVAEdesign3_WmV import OneDimVAE as VAE  # 导入 VAE 模型
 
 def main():
     # ==============================
     # 1. 设置模型参数
     # ==============================
     # TODO: 设置模型参数
-    latent_dim = 4096            # 与训练时相同
+    latent_dim = 16            # 与训练时相同
+    # latent_dim = 4096            # 与训练时相同
     # input_length = 1494528  # 与训练数据长度相同
-    input_length = 3391488  # 与训练数据长度相同
+    # input_length = 3391488  # AQUALORA RANK=8
+    # input_length = 1494528  # AQUALORA RANK=8 partial
     # input_length = 6782976  # 与训练数据长度相同
-    # input_length = 1929928  # 与训练数据长度相同
+    # input_length = 1929928  # 与
+    # input_length = 797184  # 与新pokemon数据集长度相同
     # input_length = 27131904  # 与训练数据长度相同
-    # input_length = 1695744
+    input_length = 8 # rank=4
+    # input_length = 747264 # rank=4的partial
     # kld_weight = 0.005          # 与训练时相同
-    kld_weight = 0.00005          # 与训练时相同
+    kld_weight = 0.02          # 与训练时相同
 
     # ==============================
     # 2. 创建模型实例并加载权重
     # ==============================
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     # 创建模型实例
@@ -47,7 +55,17 @@ def main():
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1216_4000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_8000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
-    checkpoint_path = '../output/rank8_8bits_kld000005_0102_800epoch/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_pokemon_3000epoch_latD1024_0120/checkpoint_End_CVAE/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_pokemon_2000epoch_0120/checkpoint_End_CVAE/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_pokemon_3000epoch_latD4096_0123/checkpoint_End_CVAE/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_rank4_4bits_8000epoch_0202/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/WmV2_rank8_8bits_3000epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/WmV2_rank8_8bits_3000epoch/checkpoint_End/model.safetensors'
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/better_rank4_4bits_partial_6000epoch_0204/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_rank8_8bits_6000epoch_partial_0201/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_rank8_8bits_10000epoch_0125/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/new_rank8_8bits_6000epoch_0125/checkpoint_End/model.safetensors'  # 根据实际路径修改
+    # checkpoint_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/checkpoints/YMX_dog_r8_voc_2000epoch_0116/checkpoint_End_CVAE/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_lora_vae_checkpoints_1225_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_150epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
     # checkpoint_path = '/mnt/share_disk/dorin/AquaLoRA/checkpoints/rank8_8bits_partial_lora_vae_checkpoints_1219_800epoch/checkpoint_End/model.safetensors'  # 根据实际路径修改
@@ -82,7 +100,7 @@ def main():
     # ==============================
     # TODO: 设置保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch/20241216'  # 保存生成数据的目录
-    output_dir = '../generated_samples/rank8_8bits_kld000005_0102_800epoch/20250102'  # 保存生成数据的目录
+    output_dir = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/generated_samples/WmV2_rank8_8bits_3000epoch/'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_150epoch/20241225'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_8000epoch_partial/20241219'  # 保存生成数据的目录
     # output_dir = '../generated_samples/rank8_8bits_kld_weight_0005_800epoch_partial/20241219'  # 保存生成数据的目录
@@ -99,6 +117,8 @@ def main():
         sample = sample[:input_length]
         torch.save(sample, sample_path)
         print(f"Sample {i + 1} saved to {sample_path}")
+        print(f"Sample shape: {sample.shape}")
+        print("Sample: ", sample)
 
     print("All samples generated and saved successfully.")
 

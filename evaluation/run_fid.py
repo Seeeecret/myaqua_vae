@@ -32,7 +32,7 @@ def main(args):
         dataset = dataset['annotations']
         prompt_key = 'caption'
 
-    w_dir = f'fid_outputs/coco/{args.run_name}/w_gen'
+    w_dir = f'/gpfs/essfs/iat/Tsinghua/shaoyh/data/fid_outputs/coco/{args.run_name}/w_gen'
     os.makedirs(w_dir, exist_ok=True)
 
     for i in tqdm(range(args.start, args.end)):
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--end', default=5000, type=int)
     parser.add_argument('--lora', type=str, default=None)
     parser.add_argument('--image_length', default=512, type=int)
-    parser.add_argument('--model_id', default='runwayml/stable-diffusion-v1-5')
+    parser.add_argument('--model_id', default='stable-diffusion-v1-5/stable-diffusion-v1-5')
     parser.add_argument('--num_images', default=1, type=int)
     parser.add_argument('--guidance_scale', default=7.5, type=float)
     parser.add_argument('--num_inference_steps', default=50, type=int)

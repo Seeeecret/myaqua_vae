@@ -12,6 +12,7 @@ import os
 import argparse
 import logging
 from glob import glob
+from venv import logger
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
@@ -20,6 +21,8 @@ from tqdm import tqdm
 #     os.makedirs(os.environ['HF_HOME'])
 import torch
 import torch.nn as nn
+from safetensors.torch import save_file
+
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -27,7 +30,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank4 import OneDimVAE as VAE
+from myVAEdesign3_rank4_Pokemon import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -99,7 +102,7 @@ def train(args):
     """
     accelerator = Accelerator(mixed_precision='fp16' if args.fp16 else 'no', log_with="all", project_dir=args.output_dir )
     device = accelerator.device
-    # 设置随机种子（可选）
+    # 设置随机种子
     if args.seed is not None:
         set_seed(args.seed)
     else:
@@ -130,7 +133,7 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1695744,
+        input_length=args.input_length,
         kld_weight=args.kld_weight,
     ).to(device)
 
@@ -155,7 +158,7 @@ def train(args):
     # TODO: 从warmup的学习率调度器改为余弦退火调度器，仿照NND的develop分支
     scheduler = CosineAnnealingLR(
         optimizer=optimizer,
-        T_max=args.num_epochs,
+        T_max=args.num_epochs * 2,
     )
     # Calculate total steps for the entire training
     accelerator.print(f"Total training steps: {total_steps}")
@@ -197,8 +200,8 @@ def train(args):
     for epoch in range(start_epoch, args.num_epochs):
         model.train()
         total_loss = 0
-        total_recon_loss = 0  # 新增：累积重建损失
-        total_kld_loss = 0  # 新增：累积KLD损失
+        total_recon_loss = 0  # 累积重建损失
+        total_kld_loss = 0  # 累积KLD损失
 
         # Use progress bar only in the main process
         if accelerator.is_main_process:
@@ -217,14 +220,13 @@ def train(args):
             # Backward pass
             accelerator.backward(loss)
             optimizer.step()
-            # if accelerator.is_main_process:
-            #     scheduler.step()
+
 
             total_loss += loss.item()
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
-            recon_loss = recon_loss.mean()  # 或 recon_loss.sum()
-            kld_loss = kld_loss.mean()  # 或 kld_loss.sum()
+            recon_loss = recon_loss.mean()  #  recon_loss.sum()
+            kld_loss = kld_loss.mean()  #  kld_loss.sum()
             total_recon_loss += recon_loss.item()  # 累积重建损失
             total_kld_loss += kld_loss.item()  # 累积KLD损失
 
@@ -286,14 +288,17 @@ def train(args):
         # model_path = os.path.join(args.output_dir, 'vae_final.pth')
         checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_End')
 
-        accelerator.save_state(checkpoint_path)
+        # accelerator.save_state(checkpoint_path)
         # 下面代码启用后，进度条会卡住，最后报错
         # TODO: 猜测是wait_for_everyone()方法导致的
         # accelerator.wait_for_everyone()
-        # unwrapped_model = accelerator.unwrap_model(model)
-        # torch.save(unwrapped_model.state_dict(), model_path)
-        accelerator.print(f"Model saved to {checkpoint_path}")
-        logger.info(f"Model saved to {checkpoint_path}")
+        unwrapped_model = accelerator.unwrap_model(model)
+        os.makedirs(checkpoint_path, exist_ok=True)
+        weights_path = os.path.join(checkpoint_path, 'model.safetensors')
+        save_file(unwrapped_model.state_dict(), weights_path)
+
+        accelerator.print(f"Model saved to {weights_path}")
+        logger.info(f"Model saved to {weights_path}")
     os.makedirs(args.output_dir, exist_ok=True)
     # 绘制损失曲线
     plt.figure(figsize=(10, 6))
@@ -308,7 +313,29 @@ def train(args):
     plt.savefig(os.path.join(args.output_dir, 'loss_curve1.png'))
     plt.show()
 
-    # 新增：绘制包含 loss, recon_loss, kld_loss 的图像
+    # 绘制recon_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Recon_Loss')
+    plt.title('Reconstruction Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'recon_loss_curve.png'))
+    plt.show()
+
+    # 绘制kld_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_kld_loss_list, label='KLD Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('KLD_Loss')
+    plt.title('KLD Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'kld_loss_curve.png'))
+    plt.show()
+
+    # 绘制包含 loss, recon_loss, kld_loss 的图像
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Total Loss')
     plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
@@ -336,7 +363,7 @@ def parse_args():
                         help="Directory containing training data files.")
 
     # Training parameters
-    parser.add_argument('--num_epochs', type=int, default=10,
+    parser.add_argument('--num_epochs', type=int, default=2000,
                         help="Number of training epochs.")
     parser.add_argument('--batch_size', type=int, default=2,
                         help="Batch size for training.")
@@ -344,14 +371,11 @@ def parse_args():
                         help="Learning rate for the optimizer.")
     parser.add_argument('--latent_dim', type=int, default=256,
                         help="Dimension of the latent space.")
-    parser.add_argument('--kld_weight', type=float, default=0.005,
+    parser.add_argument('--kld_weight', type=float, default=0.020,
                         help="Weight for the KL divergence loss.")
-    # encoder channels，输入一个列表
-    parser.add_argument('--encoder_channels', type=int, nargs='+',default=None,
-                        help="Number of channels in the encoder layers.")
-    # decoder channels，输入一个列表
-    parser.add_argument('--decoder_channels', type=int, nargs='+',default=None,
-                        help="Number of channels in the decoder layers.")
+    # input_length
+    parser.add_argument('--input_length', type=int, default=1695744,
+                        help="Length of the input data.")
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 
     # Mixed precision
@@ -379,6 +403,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=2024,
                         help="Random seed for reproducibility.")
     args = parser.parse_args()
+    print(args)
+    logger.info(args)
     return args
 
 # =============================================================================

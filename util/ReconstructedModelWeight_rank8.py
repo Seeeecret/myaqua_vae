@@ -95,8 +95,13 @@ encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/rank64_
 SHAO_encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/SHAO_alter3_kld_weight_00005_1208/reconstructed_normalized_adapter_model_31/reconstructed_data.pth'
 rank8_encodeDecodeNormalizedData_path = '/mnt/share_disk/dorin/AquaLoRA/output/rank8_8bits_lora_vae_checkpoints_1215/reconstructed_pytorch_lora_weights_18750/reconstructed_data.pth'
 
-# 选择采样的数据路径
-reconstructed_lora_vector = torch.load(rank8_8bits_kld_weight_0005_150_path1_1225)
+new_pokemon_3000epoch_latD1024_0120_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/generated_samples/new_pokemon_3000epoch_latD1024_0120/sample_1.pth'
+
+new_aqualora_3000epoch_latD256_0125_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/generated_samples/new_rank8_8bits_3000epoch_0125/sample_1.pth'
+new_aqualora_6000epoch_latD256_0125_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/generated_samples/new_rank8_8bits_6000epoch_0125/sample_1.pth'
+new_aqualora_10000epoch_latD256_0125_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/generated_samples/new_rank8_8bits_10000epoch_0125/sample_1.pth'
+# TODO：选择采样的数据路径
+reconstructed_lora_vector = torch.load(new_aqualora_10000epoch_latD256_0125_path)
 
 # 打印重建模型参数信息
 reconstructed_lora_param_info = {}
@@ -124,7 +129,9 @@ print(reconstructed_lora_vector[:1000])
 
 # Load the data dictionary from the selected file
 #  TODO : 设置标准数据路径
-data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
+# data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
+# data_path = "/data/Tsinghua/wuzy/juliensimon/stable-diffusion-v1-5-pokemon-lora/normalized_data/normalized_pytorch_lora_weights_10.pth"
+data_path = "/data/Tsinghua/wuzy/rank8_bits8_dataset/normalize_9360/normalized_pytorch_lora_weights_10.pth"
 # data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank16_8bits_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_18750.pth"
 # data_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank64_extracted_lora_weights/normalized_data/normalized_pytorch_lora_weights_37499.pth"
 
@@ -174,7 +181,8 @@ localtime = time.asctime(time.localtime(time.time()))
 # Save the restored state_dict to a file
 # TODO: 修改为自己的输出路径
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1216_8000epoch'
-save_path = '../output/rank8_8bits_kld000005_0102_800epoch'
+save_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/output/new_rank8_8bits_10000epoch_0125'
+# save_path = '/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/myaqua_vae/output/new_rank8_8bits_6000epoch_0125'
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1216_4000epoch'
 # save_path = '../output/encodedecode_rank8_8bits_lora_vae_checkpoints_1215'
 # save_path = '../output/rank8_8bits_lora_vae_checkpoints_1215'

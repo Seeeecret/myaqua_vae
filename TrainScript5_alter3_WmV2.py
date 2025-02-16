@@ -30,7 +30,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank8_partial import OneDimVAE as VAE
+from myVAEdesign3_WmV2 import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -44,24 +44,23 @@ import matplotlib.pyplot as plt
 # =============================================================================
 # Dataset Definition
 # =============================================================================
+
+from torch.utils.data import Dataset
+import torch
+from glob import glob
 import os
 
-
-class VAEDataset(Dataset):
+class WatermarkDataset(Dataset):
     """
-    Custom Dataset for loading normalized VAE training and evaluation data.
-    Each data file is a dictionary containing:
-      - "flattened": the normalized data as a 1D tensor.
-      - "mean": the mean value of the original data.
-      - "std": the standard deviation of the original data.
+    Custom Dataset for loading WatermarkTensor data for VAE training.
+    Each file contains a single watermark tensor.
     """
-
     def __init__(self, data_dir):
         """
         Args:
-            data_dir (str): Directory containing the normalized data files.
+            data_dir (str): Directory containing the watermark tensor files.
         """
-        self.data_files = glob(os.path.join(data_dir, 'normalized_*.pth'))
+        self.data_files = glob(os.path.join(data_dir, '*.pth'))
         if not self.data_files:
             raise FileNotFoundError(f"No data files found in {data_dir}")
 
@@ -70,25 +69,17 @@ class VAEDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Load and return a data sample.
+        Load and return a watermark tensor.
         """
         try:
-            data_dict = torch.load(self.data_files[idx])
-            if "data" not in data_dict:
-                raise ValueError(f"Missing 'data' key in {self.data_files[idx]}")
+            watermark_tensor = torch.load(self.data_files[idx])
+            watermark_tensor = watermark_tensor.detach()
 
-            # Load the flattened normalized data
-            flattened_data = data_dict["data"]
-
-            # Ensure data is in the expected shape for training
-            if flattened_data.dim() != 1:
-                raise ValueError(f"Flattened data in {self.data_files[idx]} is not 1D")
-
-            # Reshape to (1, length) for 1D convolution and return
-            return flattened_data.unsqueeze(0)
+            if watermark_tensor.dim() != 2:
+                raise ValueError(f"Watermark tensor in {self.data_files[idx]} is not 2D")
+            return watermark_tensor
         except Exception as e:
             raise ValueError(f"Error loading {self.data_files[idx]}: {e}")
-
 
 # =============================================================================
 # Training Function
@@ -104,7 +95,7 @@ def train(args):
     """
     accelerator = Accelerator(mixed_precision='fp16' if args.fp16 else 'no', log_with="all", project_dir=args.output_dir )
     device = accelerator.device
-    # 设置随机种子（可选）
+    # 设置随机种子
     if args.seed is not None:
         set_seed(args.seed)
     else:
@@ -135,12 +126,12 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1494528,
+        input_length=args.input_length,
         kld_weight=args.kld_weight,
     ).to(device)
 
     # Prepare datasets and dataloaders
-    train_dataset = VAEDataset(args.train_data_dir)
+    train_dataset = WatermarkDataset(args.train_data_dir)
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True
@@ -260,6 +251,8 @@ def train(args):
             }
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
+        # Step the scheduler
+        scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
@@ -280,8 +273,6 @@ def train(args):
         train_loss_list.append(avg_train_loss)
         train_recon_loss_list.append(avg_recon_loss)  # 记录平均重建损失
         train_kld_loss_list.append(avg_kld_loss)  # 记录平均KLD损失
-
-        scheduler.step()  # 每个epoch结束后调用 scheduler.step()，更新学习率
 
     # Save the final model
     if args.output_dir and accelerator.is_main_process:
@@ -376,7 +367,7 @@ def parse_args():
     parser.add_argument('--kld_weight', type=float, default=0.020,
                         help="Weight for the KL divergence loss.")
     # input_length
-    parser.add_argument('--input_length', type=int, default=3391488,
+    parser.add_argument('--input_length', type=int, default=1695744,
                         help="Length of the input data.")
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 

@@ -12,7 +12,6 @@ import os
 import argparse
 import logging
 from glob import glob
-from venv import logger
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
@@ -30,7 +29,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank8_partial import OneDimVAE as VAE
+from AEdesign3_rank4 import OneDimAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -44,8 +43,6 @@ import matplotlib.pyplot as plt
 # =============================================================================
 # Dataset Definition
 # =============================================================================
-import os
-
 
 class VAEDataset(Dataset):
     """
@@ -135,8 +132,9 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1494528,
+        input_length=1695744,
         kld_weight=args.kld_weight,
+        manual_std=args.manual_std,
     ).to(device)
 
     # Prepare datasets and dataloaders
@@ -295,8 +293,10 @@ def train(args):
         # TODO: 猜测是wait_for_everyone()方法导致的
         # accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
-        os.makedirs(checkpoint_path, exist_ok=True)
         weights_path = os.path.join(checkpoint_path, 'model.safetensors')
+
+        os.makedirs(checkpoint_path, exist_ok=True)
+
         save_file(unwrapped_model.state_dict(), weights_path)
 
         accelerator.print(f"Model saved to {weights_path}")
@@ -365,7 +365,7 @@ def parse_args():
                         help="Directory containing training data files.")
 
     # Training parameters
-    parser.add_argument('--num_epochs', type=int, default=2000,
+    parser.add_argument('--num_epochs', type=int, default=10,
                         help="Number of training epochs.")
     parser.add_argument('--batch_size', type=int, default=2,
                         help="Batch size for training.")
@@ -373,11 +373,14 @@ def parse_args():
                         help="Learning rate for the optimizer.")
     parser.add_argument('--latent_dim', type=int, default=256,
                         help="Dimension of the latent space.")
-    parser.add_argument('--kld_weight', type=float, default=0.020,
+    parser.add_argument('--kld_weight', type=float, default=0.005,
                         help="Weight for the KL divergence loss.")
-    # input_length
-    parser.add_argument('--input_length', type=int, default=3391488,
-                        help="Length of the input data.")
+    # encoder channels，输入一个列表
+    parser.add_argument('--encoder_channels', type=int, nargs='+',default=None,
+                        help="Number of channels in the encoder layers.")
+    # decoder channels，输入一个列表
+    parser.add_argument('--decoder_channels', type=int, nargs='+',default=None,
+                        help="Number of channels in the decoder layers.")
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 
     # Mixed precision
@@ -401,12 +404,12 @@ def parse_args():
     parser.add_argument('--resume_from_checkpoint', action='store_true',
                         help="Resume training from the latest checkpoint.")
 
+    parser.add_argument('--manual_std', type=str, default=None)
+
     # Seed for reproducibility (optional)
     parser.add_argument('--seed', type=int, default=2024,
                         help="Random seed for reproducibility.")
     args = parser.parse_args()
-    print(args)
-    logger.info(args)
     return args
 
 # =============================================================================

@@ -16,9 +16,18 @@ def create_watermark_lora(train_folder, scale, msg_bits=48, hidinfo=None, save=T
         hidinfo = torch.tensor([int(i) for i in hidinfo]).unsqueeze(0)
     hidinfo_ = hidinfo.float()
 
+
     mapper = MapperNet(input_size=msg_bits, output_size=8)
     mapper.load_state_dict(torch.load(f"{train_folder}/mapper.pt"))
-    mapped_loradiag = mapper(hidinfo_)
+    if args.use_sampleMsgVector:
+        if args.sampleMsgVector_path is None:
+            mapped_loradiag = torch.load(f"{train_folder}/tensor_b_with_grad.pth")
+        else:
+            mapped_loradiag = torch.load(args.sampleMsgVector_path)
+
+    else:
+        mapped_loradiag = mapper(hidinfo_)
+
 
     c_lora_state_dict = dict()
     for key in lora_state_dict:
@@ -44,9 +53,15 @@ def create_watermark_lora(train_folder, scale, msg_bits=48, hidinfo=None, save=T
 
     # save c_lora_state_dict
     if save:
-        if not os.path.exists(f"{train_folder}/{hidinfo}"):
-            os.makedirs(f"{train_folder}/{hidinfo}")
-        safetensors.torch.save_file(c_lora_state_dict, f"{train_folder}/{hidinfo}/pytorch_lora_weights.safetensors")
+        if args.use_sampleMsgVector:
+            if args.sampleMsgVector_path is None:
+                if not os.path.exists(f"{train_folder}/sample_{hidinfo}"):
+                    os.makedirs(f"{train_folder}/sample_{hidinfo}")
+                safetensors.torch.save_file(c_lora_state_dict, f"{train_folder}/sample_{hidinfo}/pytorch_lora_weights.safetensors")
+        else:
+            if not os.path.exists(f"{train_folder}/{hidinfo}"):
+                os.makedirs(f"{train_folder}/{hidinfo}")
+            safetensors.torch.save_file(c_lora_state_dict, f"{train_folder}/{hidinfo}/pytorch_lora_weights.safetensors")
 
     return hidinfo, c_lora_state_dict
 
@@ -57,6 +72,8 @@ if __name__ == "__main__":
     parser.add_argument("--msg_bits", type=int, default=48)
     parser.add_argument("--scale", type=float, default=1.03)
     parser.add_argument("--hidinfo", type=str, default=None, help="your secret message, if None, it will be randomly generated")
+    parser.add_argument("--use_sampleMsgVector",action="store_true")
+    parser.add_argument("--sampleMsgVector_path", type=str, default=None)
     args = parser.parse_args()
 
     hidinfo, _ = create_watermark_lora(args.train_folder, args.scale, args.msg_bits, args.hidinfo)

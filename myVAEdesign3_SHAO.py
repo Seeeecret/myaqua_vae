@@ -8,7 +8,7 @@ import torch.nn.functional as F
 class OneDimVAE(nn.Module):
     def __init__(self, latent_dim, input_length=1929928, kernel_size=7, divide_slice_length=4096, kld_weight=0.005):
         super(OneDimVAE, self).__init__()
-        d_model = [8, 16, 32, 64, 128, 256, 256, 128, 64, 32, 16, 8]
+        d_model =[ 8, 16, 32, 64, 128, 256, 256, 128, 64, 32, 16, 8]
         self.d_model = d_model
         self.d_latent = latent_dim
         self.kld_weight = kld_weight

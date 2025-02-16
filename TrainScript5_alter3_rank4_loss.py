@@ -30,7 +30,7 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_rank8_partial import OneDimVAE as VAE
+from myVAEdesign3_rank4_Loss import OneDimVAE as VAE
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -44,8 +44,6 @@ import matplotlib.pyplot as plt
 # =============================================================================
 # Dataset Definition
 # =============================================================================
-import os
-
 
 class VAEDataset(Dataset):
     """
@@ -104,7 +102,7 @@ def train(args):
     """
     accelerator = Accelerator(mixed_precision='fp16' if args.fp16 else 'no', log_with="all", project_dir=args.output_dir )
     device = accelerator.device
-    # 设置随机种子（可选）
+    # 设置随机种子
     if args.seed is not None:
         set_seed(args.seed)
     else:
@@ -135,8 +133,10 @@ def train(args):
     # Initialize the VAE model
     model = VAE(
         latent_dim=args.latent_dim,
-        input_length=1494528,
+        input_length=args.input_length,
         kld_weight=args.kld_weight,
+        format_data_path='/data/Tsinghua/wuzy/rank4_bits4_output_0203/normalized_data/normalized_pytorch_lora_weights_12480.pth',
+        msgdecoder_path='/data/Tsinghua/wuzy/rank4_bits4_output_0203/msgdecoder.pt'
     ).to(device)
 
     # Prepare datasets and dataloaders
@@ -260,6 +260,8 @@ def train(args):
             }
             accelerator.log(metrics, step=epoch * len(train_dataloader) + batch_idx)
 
+        # Step the scheduler
+        scheduler.step()
 
         # Save checkpoint with epoch
         if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
@@ -280,8 +282,6 @@ def train(args):
         train_loss_list.append(avg_train_loss)
         train_recon_loss_list.append(avg_recon_loss)  # 记录平均重建损失
         train_kld_loss_list.append(avg_kld_loss)  # 记录平均KLD损失
-
-        scheduler.step()  # 每个epoch结束后调用 scheduler.step()，更新学习率
 
     # Save the final model
     if args.output_dir and accelerator.is_main_process:
@@ -376,7 +376,7 @@ def parse_args():
     parser.add_argument('--kld_weight', type=float, default=0.020,
                         help="Weight for the KL divergence loss.")
     # input_length
-    parser.add_argument('--input_length', type=int, default=3391488,
+    parser.add_argument('--input_length', type=int, default=1695744,
                         help="Length of the input data.")
     parser.add_argument('--warmup_ratio', type=float, default=0.1, help="Warm-up steps ratio")
 

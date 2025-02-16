@@ -7,36 +7,27 @@ It includes mixed-precision training, learning rate scheduling, and logging.
 改自NND的develop分支的VAE
 
 """
-
-import os
 import argparse
-import logging
 from glob import glob
 
 from accelerate.utils import set_seed
 from tqdm import tqdm
-# os.environ['HF_HOME'] = '/NEW_EDS/JJ_Group/shaoyh/dorin/cache'
-# if not os.path.isdir(os.environ['HF_HOME']):
-#     os.makedirs(os.environ['HF_HOME'])
 import torch
 import torch.nn as nn
+from safetensors.torch import save_file
+
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
-# Import the VAE model from the provided code
 from myVAEdesign3_SHAO import OneDimVAE as VAE
-import matplotlib.pyplot as plt
+
 import os
-import numpy as np
-from transformers import get_linear_schedule_with_warmup
+
 
 import matplotlib.pyplot as plt
-# from sklearn.manifold import TSNE
-# from sklearn.decomposition import PCA
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 # =============================================================================
 # Dataset Definition
@@ -285,14 +276,17 @@ def train(args):
         # model_path = os.path.join(args.output_dir, 'vae_final.pth')
         checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_End')
 
-        accelerator.save_state(checkpoint_path)
+        # accelerator.save_state(checkpoint_path)
         # 下面代码启用后，进度条会卡住，最后报错
         # TODO: 猜测是wait_for_everyone()方法导致的
         # accelerator.wait_for_everyone()
-        # unwrapped_model = accelerator.unwrap_model(model)
-        # torch.save(unwrapped_model.state_dict(), model_path)
-        accelerator.print(f"Model saved to {checkpoint_path}")
-        logger.info(f"Model saved to {checkpoint_path}")
+        unwrapped_model = accelerator.unwrap_model(model)
+        os.makedirs(checkpoint_path, exist_ok=True)
+        weights_path = os.path.join(checkpoint_path, 'model.safetensors')
+        save_file(unwrapped_model.state_dict(), weights_path)
+
+        accelerator.print(f"Model saved to {weights_path}")
+        logger.info(f"Model saved to {weights_path}")
     os.makedirs(args.output_dir, exist_ok=True)
     # 绘制损失曲线
     plt.figure(figsize=(10, 6))
@@ -307,7 +301,29 @@ def train(args):
     plt.savefig(os.path.join(args.output_dir, 'loss_curve1.png'))
     plt.show()
 
-    # 新增：绘制包含 loss, recon_loss, kld_loss 的图像
+    # 绘制recon_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Recon_Loss')
+    plt.title('Reconstruction Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'recon_loss_curve.png'))
+    plt.show()
+
+    # 绘制kld_loss单独的曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, args.num_epochs + 1), train_kld_loss_list, label='KLD Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('KLD_Loss')
+    plt.title('KLD Loss over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(args.output_dir, 'kld_loss_curve.png'))
+    plt.show()
+
+    # 绘制包含 loss, recon_loss, kld_loss 的图像
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Total Loss')
     plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
@@ -374,10 +390,14 @@ def parse_args():
     parser.add_argument('--resume_from_checkpoint', action='store_true',
                         help="Resume training from the latest checkpoint.")
 
+    parser.add_argument('--manual_std', type=str, default=None)
+
     # Seed for reproducibility (optional)
     parser.add_argument('--seed', type=int, default=2024,
                         help="Random seed for reproducibility.")
     args = parser.parse_args()
+    print(args)
+    logger.info(args)
     return args
 
 # =============================================================================

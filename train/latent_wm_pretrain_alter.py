@@ -2,29 +2,19 @@ import sys
 sys.path.append("../")
 import os
 import random
-from pathlib import Path
-import glob
 import PIL
 from PIL import Image
 from tqdm.auto import tqdm
-import numpy as np
+
 import argparse
 import json
 
-import torch
-
-import torch.nn.functional as F
-import torchvision.transforms as T
 import torch.utils.checkpoint
-import torch.nn as nn
 from torch.utils.data import Dataset
-from torchvision import transforms
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 
-import transformers
-import diffusers
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
@@ -115,7 +105,7 @@ class traindataset(Dataset):
 def main(args):
 
     train_loader = torch.utils.data.DataLoader(
-        traindataset(args.dataset, metadata_path="/home/ma-user/work/ymx/data/coco/train2017/metadata.jsonl", random_aug=args.random_aug),
+        traindataset(args.dataset, metadata_path="./dataset_assets/metadata.jsonl", random_aug=args.random_aug),
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=4,
