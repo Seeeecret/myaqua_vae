@@ -245,7 +245,7 @@ class OneDimVAE(nn.Module):
 
     def inverseNormalization(self, flattened_recons):
         """
-        接收VAE重构后的 1D 向量(或batch维度).
+        接收VAE重构后的 1D 向量.
         根据 self.format_data_dict 提供的 mean/std/shape/length 信息,
         对其进行 "逆归一化 + reshape", 并返回一个字典 restored_state_dict.
 

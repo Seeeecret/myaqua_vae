@@ -11,7 +11,6 @@ import numpy as np
 import argparse
 
 import torch
-torch.hub.set_dir("../cache/torch/hub")
 
 import torch.nn.functional as F
 import torchvision.transforms as T
