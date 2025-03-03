@@ -17,7 +17,7 @@ def create_watermark_lora(train_folder, scale, msg_bits=48, hidinfo=None, save=T
     hidinfo_ = hidinfo.float()
 
 
-    mapper = MapperNet(input_size=msg_bits, output_size=8)
+    mapper = MapperNet(input_size=msg_bits, output_size=2)
     mapper.load_state_dict(torch.load(f"{train_folder}/mapper.pt"))
     if args.use_sampleMsgVector:
         if args.sampleMsgVector_path is None:

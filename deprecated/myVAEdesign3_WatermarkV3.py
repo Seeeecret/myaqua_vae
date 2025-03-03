@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import sys
+sys.path.append("../watermark/")
 sys.path.append("../")
-sys.path.append("../../")
 
 from watermark.V4.util import detect_watermark
 
@@ -136,12 +136,12 @@ class OneDimVAEWatermark(nn.Module):
     def watermark(self, z):
         # 计算水印并添加到 z 中
         # 保留原始 z 的副本
-        z_original = z.clone().detach().requires_grad_(True)
+        # z_original = z.clone().detach().requires_grad_(True)
 
         # 直接优化 z
-        z_watermarked = self._watermark_optim(z_original, n_iters=100, lr=0.01)
+        z_watermarked = self._watermark_optim(z, n_iters=100, lr=0.01)
 
-        return z_watermarked, z_original
+        return z_watermarked, z
 
     def encode_decode(self, input, **kwargs):
         mu, log_var = self.encode(input)
@@ -171,7 +171,7 @@ class OneDimVAEWatermark(nn.Module):
             norm = torch.norm(z_opt, dim=1, keepdim=True)
             loss_w = torch.mean(torch.relu(norm * cos_theta - dot_product))
 
-            # 总损失 = 水印损失 + 重建损失
+            # 总损失 = 水印损失
             loss = self.lambda_w * loss_w
             if hasattr(self, 'loss_recon') and self.loss_recon is not None:
                 loss += self.loss_recon

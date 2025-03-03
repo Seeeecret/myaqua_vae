@@ -22,19 +22,20 @@ def main():
     # 1. 设置模型参数
     # ==============================
     # TODO: 设置模型参数
-    latent_dim = 16            # 与训练时相同
+    latent_dim = 256            # 与训练时相同
     # latent_dim = 4096            # 与训练时相同
     # input_length = 1494528  # 与训练数据长度相同
     # input_length = 3391488  # AQUALORA RANK=8
     # input_length = 1494528  # AQUALORA RANK=8 partial
     # input_length = 6782976  # 与训练数据长度相同
-    # input_length = 1929928  # 与
+    input_length = 1695744
     # input_length = 797184  # 与新pokemon数据集长度相同
     # input_length = 27131904  # 与训练数据长度相同
-    input_length = 8 # rank=4
+    # input_length = 8 # rank=4
     # input_length = 747264 # rank=4的partial
     # kld_weight = 0.005          # 与训练时相同
     kld_weight = 0.02          # 与训练时相同
+    iters = 500
 
     # ==============================
     # 2. 创建模型实例并加载权重
@@ -44,9 +45,12 @@ def main():
 
     # 创建模型实例
     model = VAE(
-        latent_dim=latent_dim,
-        input_length=input_length,
-        kld_weight=kld_weight
+        input_length=args.input_length,
+        latent_dim=args.latent_dim,
+        kld_weight=args.kld_weight,
+        target_fpr=1e-6,  # +++ 新增水印参数
+        lambda_w=1.0,  # +++ 水印损失权重
+        n_iters=iters  # +++ 水印优化迭代次数
     ).to(device)
 
     # 加载模型权重

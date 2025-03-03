@@ -4,7 +4,7 @@ Multi-GPU Training Script for VAE using Accelerate Library
 This script trains the provided VAE model on multiple GPUs using the Hugging Face Accelerate library.
 It includes mixed-precision training, learning rate scheduling, and logging.
 改自NND的develop分支的VAE
-水印V加在μ上，检测也在μ上的版本
+水印V加在Z上，检测也在Z上的版本，将一个损失放进了内部
 
 """
 
@@ -28,12 +28,11 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
-from myVAEdesign3_WatermarkV3 import OneDimVAEWatermark as VAE
+from myVAEdesign3_WatermarkV3_1 import OneDimVAEWatermark as VAE
 import os
 import numpy as np
 
 import matplotlib.pyplot as plt
-
 
 
 # =============================================================================
@@ -112,12 +111,14 @@ def train(args):
     # =============================================================================
     logger = get_logger(__name__, log_level="INFO")
     log_file_path = args.log_dir
+    # 设置日志文件的路径，如果目标文件夹不存在则创建
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     file_handler = logging.FileHandler(log_file_path)  # 指定日志文件名
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     logger.logger.addHandler(file_handler)
     # 开始记录日志
-    logger.info("This is an info message.")
+    # logger.info("This is an info message.")
 
     # 使用 accelerator 提供的 logger
     accelerator.print(f"Using {accelerator.device.type} device")
@@ -126,9 +127,11 @@ def train(args):
 
     # 初始化用于记录训练和验证损失的列表
     train_loss_list = []
-    train_recon_loss_list = []  # 新增：记录重建损失
-    train_kld_loss_list = []  # 新增：记录KLD损失
-    train_watermark_loss_lost = []
+    train_recon_loss_list = []  # 记录重建损失
+    train_kld_loss_list = []  # 记录KLD损失
+    train_watermark_loss_list = []
+    train_loss_i_list = []
+    train_loss_w_list = []
     # Initialize the VAE model
     # 初始化带水印的VAE模型
     model = VAE(
@@ -137,7 +140,7 @@ def train(args):
         kld_weight=args.kld_weight,
         target_fpr=1e-6,  # +++ 新增水印参数
         lambda_w=1.0,  # +++ 水印损失权重
-        n_iters=100  # +++ 水印优化迭代次数
+        n_iters=args.n_iters  # +++ 水印优化迭代次数
     ).to(device)
 
     # Prepare datasets and dataloaders
@@ -208,7 +211,8 @@ def train(args):
         total_watermark_loss = 0  # +++ 新增水印损失
         total_recon_loss = 0  # 累积重建损失
         total_kld_loss = 0  # 累积KLD损失
-
+        total_loss_i = 0
+        total_loss_w = 0
 
         # Use progress bar only in the main process
         if accelerator.is_main_process:
@@ -223,7 +227,7 @@ def train(args):
             data = data.to(device, non_blocking=True)
 
             # Forward pass
-            loss, recon_loss, kld_loss, loss_w = model(data)
+            loss, recon_loss, kld_loss, WatermarkLoss,loss_i,loss_w = model(data)
             # Backward pass
             accelerator.backward(loss)
             optimizer.step()
@@ -235,7 +239,9 @@ def train(args):
             kld_loss = kld_loss.mean()  # kld_loss.sum()
             total_recon_loss += recon_loss.item()  # 累积重建损失
             total_kld_loss += kld_loss.item()  # 累积KLD损失
-            total_watermark_loss += loss_w.item()  # +++ 新增水印损失累积
+            total_watermark_loss += WatermarkLoss.item()  # +++ 新增水印损失累积
+            total_loss_i += loss_i.item()
+            total_loss_w += loss_w.item()
 
             # Log training progress
             if accelerator.is_main_process and batch_idx % args.log_interval == 0:
@@ -245,7 +251,9 @@ def train(args):
                     f"Loss: {loss.item():.4f}, "
                     f"Recon Loss: {recon_loss.item():.4f}, "
                     f"KLD Loss: {kld_loss.item():.4f}, "
-                    f"Watermark Loss: {loss_w.item():.4f},"  # +++ 新增水印损失日志
+                    f"Watermark Loss: {WatermarkLoss.item():.4f},"  # +++ 新增水印损失日志
+                    f"I Loss: {loss_i.item():.4f}, "
+                    f"W Loss: {loss_w.item():.4f}, "
                     f"Learning Rate: {current_lr:.10f}"
                 )
                 logger.info(
@@ -254,7 +262,9 @@ def train(args):
                     f"Loss: {loss.item():.4f}, "
                     f"Recon Loss: {recon_loss.item():.4f}, "
                     f"KLD Loss: {kld_loss.item():.4f},"
-                    f"Watermark Loss: {loss_w.item():.4f},"  # +++ 新增水印损失日志
+                    f"Watermark Loss: {WatermarkLoss.item():.4f},"  # +++ 新增水印损失日志
+                    f"I Loss: {loss_i.item():.4f}, "
+                    f"W Loss: {loss_w.item():.4f}, "
                     f"Learning Rate: {current_lr:.10f}"
 
                 )
@@ -262,7 +272,9 @@ def train(args):
                 'train_loss': loss.item(),
                 'train_recon_loss': recon_loss.item(),
                 'train_kld_loss': kld_loss.item(),
-                'watermark_loss': loss_w.item(),  # +++ 新增水印指标
+                'watermark_loss': WatermarkLoss.item(),  # +++ 新增水印指标
+                'I_loss': loss_i.item(),
+                'W_loss': loss_w.item(),
                 'epoch': epoch + 1,
                 'batch': batch_idx + 1,
                 'Learning Rate': current_lr
@@ -273,90 +285,92 @@ def train(args):
         scheduler.step()
 
         # Save checkpoint with epoch
-        # if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
-        #     checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_epoch_{epoch + 1}')
-        #     accelerator.save_state(checkpoint_path)
-        #     # 保存当前的epoch信息
-        #     training_state = {'epoch': epoch + 1}
-        #     torch.save(training_state, os.path.join(checkpoint_path, 'training_state.pt'))
-        #     logger.info(f"Saved checkpoint at {checkpoint_path}")
-        #     accelerator.print(f"Saved checkpoint at {checkpoint_path}")
-        #
-        # # 记录当前epoch的平均训练损失
-        # avg_train_loss = total_loss / len(train_dataloader)
-        # avg_recon_loss = total_recon_loss / len(train_dataloader)  # 计算平均重建损失
-        # avg_watermark_loss = total_watermark_loss / len(train_dataloader)  # 计算平均水印损失
-        # avg_kld_loss = total_kld_loss / len(train_dataloader)  # 计算平均KLD损失
-        #
-        # train_loss_list.append(avg_train_loss)
-        # train_recon_loss_list.append(avg_recon_loss)  # 记录平均重建损失
-        # train_watermark_loss_lost.append(avg_watermark_loss)  # 记录平均水印损失
-        # train_kld_loss_list.append(avg_kld_loss)  # 记录平均KLD损失
-        #
-        # if (epoch+1 == 2 or (epoch + 1) % 100 == 0) and accelerator.is_main_process:
-        #     model.eval()
-        #     val_results = {
-        #         'mask': [],
-        #         'R': [],
-        #         'log10_pvalue': []
-        #     }
-        #
-        #     # 从训练数据中随机采样一个批次用于验证（实际可替换为独立验证集）
-        #     sample_batch = next(iter(train_dataloader)).to(device)
-        #
-        #
-        #     # 生成带水印的潜在向量
-        #     # 使用 unwrapped_model 获取原始模型
-        #     unwrapped_model = accelerator.unwrap_model(model)
-        #     mu, log_var = unwrapped_model.encode(sample_batch, apply_watermark=True)
-        #     z = unwrapped_model.reparameterize(mu, log_var)
-        #     # 加水印
-        #     z_w, _ = unwrapped_model.watermark(z)
-        #     z.requires_grad_(True)
-        #     z_w.requires_grad_(True)
-        #     # 检测水印
-        #     # 调用工具函数检测水印
-        #     accelerator.print("Detecting watermark in z")
-        #     mask, R, log10_p = unwrapped_model.detect(z_w)
-        #     accelerator.print("Detection in z done")
-        #     # 收集结果（多GPU环境下需同步）
-        #     gathered_mask = accelerator.gather_for_metrics(mask)
-        #     gathered_R = accelerator.gather_for_metrics(R)
-        #     gathered_log10_p = accelerator.gather_for_metrics(log10_p)
-        #     accelerator.print("Gathered results")
-        #
-        #
-        #     # val_gathered_mask = torch.cat(gathered_mask, dim=0)  # 连接所有的 mask 张量
-        #     # val_gathered_R = torch.cat(gathered_R, dim=0)
-        #     # val_gathered_log10_p = torch.cat(gathered_log10_p, dim=0)
-        #     # accelerator.print("Results collected")
-        #     float_gathered_mask = gathered_mask.to(torch.float32)
-        #     accelerator.print("Results converted to float")
-        #     # 在 GPU 上计算指标
-        #     tpr = torch.mean(float_gathered_mask).item() * 100  # 转为 Python 数字，乘以 100 获得百分比
-        #     avg_r = torch.mean(gathered_R).item()  # 计算 R 的平均值
-        #     avg_log10_p = torch.mean(gathered_log10_p).item()  # 计算 log10(pvalue) 的平均值
-        #
-        #     # 记录到日志
-        #     accelerator.print(
-        #         f"Validation @ Epoch {epoch + 1}: "
-        #         f"TPR = {tpr:.2f}%, "
-        #         f"Avg R = {avg_r:.2f}, "
-        #         f"Avg log10(p) = {avg_log10_p:.2f}"
-        #     )
-        #     logger.info(
-        #         f"Validation @ Epoch {epoch + 1}: "
-        #         f"TPR = {tpr:.2f}%, Avg R = {avg_r:.2f}, Avg log10(p) = {avg_log10_p:.2f}"
-        #     )
-        #
-        #     # 保存指标
-        #     val_tpr_list.append(tpr)
-        #     val_avg_r_list.append(avg_r)
-        #     accelerator.print("Validation metrics saved")
-        #     # 恢复训练模式
-        #     model.train()
-        #     accelerator.print("Back to training mode")
+        if (epoch + 1) % args.save_checkpoint_epochs == 0 and args.checkpoint_dir and accelerator.is_main_process:
+            checkpoint_path = os.path.join(args.checkpoint_dir, f'checkpoint_epoch_{epoch + 1}')
+            accelerator.save_state(checkpoint_path)
+            # 保存当前的epoch信息
+            training_state = {'epoch': epoch + 1}
+            torch.save(training_state, os.path.join(checkpoint_path, 'training_state.pt'))
+            logger.info(f"Saved checkpoint at {checkpoint_path}")
+            accelerator.print(f"Saved checkpoint at {checkpoint_path}")
 
+        # 记录当前epoch的平均训练损失
+        avg_train_loss = total_loss / len(train_dataloader)
+        avg_recon_loss = total_recon_loss / len(train_dataloader)  # 计算平均重建损失
+        avg_watermark_loss = total_watermark_loss / len(train_dataloader)  # 计算平均水印损失
+        avg_kld_loss = total_kld_loss / len(train_dataloader)  # 计算平均KLD损失
+        avg_loss_i = total_loss_i / len(train_dataloader)
+        avg_loss_w = total_loss_w / len(train_dataloader)
+
+        train_loss_list.append(avg_train_loss)
+        train_recon_loss_list.append(avg_recon_loss)  # 记录平均重建损失
+        train_watermark_loss_list.append(avg_watermark_loss)  # 记录平均水印损失
+        train_kld_loss_list.append(avg_kld_loss)  # 记录平均KLD损失
+        train_loss_i_list.append(avg_loss_i)
+        train_loss_w_list.append(avg_loss_w)
+
+        if (epoch + 1 == 2 or (epoch + 1) % 100 == 0) and accelerator.is_main_process:
+            model.eval()
+            val_results = {
+                'mask': [],
+                'R': [],
+                'log10_pvalue': []
+            }
+
+            # 从训练数据中随机采样一个批次用于验证
+            sample_batch = next(iter(train_dataloader)).to(device)
+
+            # 生成带水印的潜在向量
+            # 使用 unwrapped_model 获取原始模型
+            unwrapped_model = accelerator.unwrap_model(model)
+            mu, log_var = unwrapped_model.encode(sample_batch, apply_watermark=True)
+            z = unwrapped_model.reparameterize(mu, log_var)
+            # 加水印
+            z_w, _, _,_,_ = unwrapped_model.watermark(z)
+            z.requires_grad_(True)
+            z_w.requires_grad_(True)
+            # 检测水印
+            # 调用工具函数检测水印
+            accelerator.print("Detecting watermark in z")
+            mask, R, log10_p = unwrapped_model.detect(z_w)
+            accelerator.print("Detection in z done")
+            # 收集结果（多GPU环境下需同步）
+            gathered_mask = (mask)
+            gathered_R = (R)
+            gathered_log10_p = (log10_p)
+            accelerator.print("Gathered results")
+
+            # val_gathered_mask = torch.cat(gathered_mask, dim=0)  # 连接所有的 mask 张量
+            # val_gathered_R = torch.cat(gathered_R, dim=0)
+            # val_gathered_log10_p = torch.cat(gathered_log10_p, dim=0)
+            # accelerator.print("Results collected")
+            float_gathered_mask = gathered_mask.to(torch.float32)
+            accelerator.print("Results converted to float")
+            # 在 GPU 上计算指标
+            tpr = torch.mean(float_gathered_mask).item() * 100  # 转为 Python 数字，乘以 100 获得百分比
+            avg_r = torch.mean(gathered_R).item()  # 计算 R 的平均值
+            avg_log10_p = torch.mean(gathered_log10_p).item()  # 计算 log10(pvalue) 的平均值
+
+            # 记录到日志
+            accelerator.print(
+                f"Validation @ Epoch {epoch + 1}: "
+                f"TPR = {tpr:.2f}%, "
+                f"Avg R = {avg_r:.2f}, "
+                f"Avg log10(p) = {avg_log10_p:.2f}"
+            )
+            logger.info(
+                f"Validation @ Epoch {epoch + 1}: "
+                f"TPR = {tpr:.2f}%, Avg R = {avg_r:.2f}, Avg log10(p) = {avg_log10_p:.2f}"
+            )
+
+            # 保存指标
+            val_tpr_list.append(tpr)
+            val_avg_r_list.append(avg_r)
+            accelerator.print("Validation metrics saved")
+            # 恢复训练模式
+            model.train()
+            accelerator.print("Back to training mode")
+        # accelerator.wait_for_everyone()
 
     # Save the final model
     if args.output_dir and accelerator.is_main_process:
@@ -376,8 +390,6 @@ def train(args):
 
         accelerator.print(f"Model saved to {weights_path}")
         logger.info(f"Model saved to {weights_path}")
-
-
 
         os.makedirs(args.output_dir, exist_ok=True)
         # 绘制损失曲线
@@ -399,6 +411,7 @@ def train(args):
         plt.xlabel('Epoch')
         plt.ylabel('Recon_Loss')
         plt.title('Reconstruction Loss over Epochs')
+        plt.axhline(y=0.03, color='r', linestyle='--', label='Threshold: 0.03')
         plt.legend()
         plt.grid()
         plt.savefig(os.path.join(args.output_dir, 'recon_loss_curve.png'))
@@ -417,7 +430,7 @@ def train(args):
 
         # 绘制watermark_loss单独的曲线
         plt.figure(figsize=(10, 6))
-        plt.plot(range(1, args.num_epochs + 1), train_watermark_loss_lost, label='Watermark Loss')
+        plt.plot(range(1, args.num_epochs + 1), train_watermark_loss_list, label='Watermark Loss')
         plt.xlabel('Epoch')
         plt.ylabel('Watermark_Loss')
         plt.title('Watermark Loss over Epochs')
@@ -425,13 +438,11 @@ def train(args):
         plt.grid()
         plt.savefig(os.path.join(args.output_dir, 'watermark_loss_curve.png'))
 
-
-        # 绘制包含 loss, recon_loss, kld_loss,watermark_loss 的图像
+        # 绘制包含 loss, recon_loss, kld_loss 的图像
         plt.figure(figsize=(10, 6))
         plt.plot(range(1, args.num_epochs + 1), train_loss_list, label='Total Loss')
         plt.plot(range(1, args.num_epochs + 1), train_recon_loss_list, label='Reconstruction Loss')
         plt.plot(range(1, args.num_epochs + 1), train_kld_loss_list, label='KLD Loss')
-        plt.plot(range(1, args.num_epochs + 1), train_watermark_loss_lost, label='Watermark Loss')
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.title('Loss Components over Epochs')
@@ -440,6 +451,42 @@ def train(args):
         plt.savefig(os.path.join(args.output_dir, 'loss_components_curve.png'))  # 保存新的图像
         plt.show()
         plt.close()
+
+        # 绘制包含 Watermark Loss, I Loss, W Loss 的图像
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, args.num_epochs + 1), train_watermark_loss_list, label='Watermark Loss')
+        plt.plot(range(1, args.num_epochs + 1), train_loss_i_list, label='I Loss')
+        plt.plot(range(1, args.num_epochs + 1), train_loss_w_list, label='W Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Watermark Loss Components over Epochs')
+        plt.legend()
+        plt.grid()
+        plt.savefig(os.path.join(args.output_dir, 'watermark_loss_components_curve.png'))  # 保存新的图像
+        plt.show()
+
+        # 绘制单独的I Loss曲线
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, args.num_epochs + 1), train_loss_i_list, label='I Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('I Loss')
+        plt.title('I Loss over Epochs')
+        plt.legend()
+        plt.grid()
+        plt.savefig(os.path.join(args.output_dir, 'I_loss_curve.png'))
+        plt.show()
+
+        # 绘制单独的W Loss曲线
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, args.num_epochs + 1), train_loss_w_list, label='W Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('W Loss')
+        plt.title('W Loss over Epochs')
+        plt.legend()
+        plt.grid()
+        plt.savefig(os.path.join(args.output_dir, 'W_loss_curve.png'))
+        plt.show()
+
 
         # 绘制TPR曲线
         plt.figure(figsize=(10, 6))
@@ -460,6 +507,7 @@ def train(args):
             tpr=val_tpr_list,
             avg_r=val_avg_r_list
         )
+
 
 # =============================================================================
 # Argument Parsing
@@ -511,9 +559,11 @@ def parse_args():
                         help="Resume training from the latest checkpoint.")
     # +++ 新增水印参数
     parser.add_argument('--target_fpr', type=float, default=1e-6,
-                       help="Target false positive rate for watermark")
+                        help="Target false positive rate for watermark")
     parser.add_argument('--lambda_w', type=float, default=1.0,
-                       help="Weight for watermark loss")
+                        help="Weight for watermark loss")
+    parser.add_argument('--n_iters', type=int, default=100,
+                        help="Number of iterations for watermark optimization")
     # Seed for reproducibility (optional)
     parser.add_argument('--seed', type=int, default=2024,
                         help="Random seed for reproducibility.")

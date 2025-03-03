@@ -9,7 +9,7 @@ import os
 # dataset_path = "/mnt/share_disk/dorin/AquaLoRA/checkpoints/lora_weights_dataset/rank8_8bits_extracted_lora_weights"
 # dataset_path = "../checkpoints/lora_weights_dataset/sd-1.5-pokemon-lora-peft"
 # dataset_path = "/gpfs/essfs/iat/Tsinghua/shaoyh/data/lora_weights_dataset/sd-1.5-pokemon-lora-peft"
-dataset_path = "/data/Tsinghua/wuzy/rank4_bits4_output_0203"
+dataset_path = "/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/juliensimon/stable-diffusion-v1-5-pokemon-lora"
 output_path = os.path.join(dataset_path, "normalized_data")
 os.makedirs(output_path, exist_ok=True)
 

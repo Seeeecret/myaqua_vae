@@ -76,7 +76,8 @@ from collections import defaultdict, Counter
 # filename = "/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/stb-diff-1.5-ft-birman-cat/pytorch_lora_weights_wo_unet.safetensors"
 # filename = "/data/Tsinghua/wuzy/juliensimon/stable-diffusion-v1-5-pokemon-lora/pytorch_lora_weights.safetensors"
 # filename = "/gpfs/essfs/iat/Tsinghua/shaoyh/wzy/code/stable-diffusion-v1-5-lora/pytorch_lora_weights.safetensors"
-filename = "/data/Tsinghua/wuzy/rank4_bits4_output_0203/pytorch_lora_weights_12476.safetensors"
+filename = "/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/juliensimon/stable-diffusion-v1-5-pokemon-lora/pytorch_lora_weights.safetensors"
+# filename = "/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/rank4_bits4_output_0216/pytorch_lora_weights.safetensors"
 
 # 加载模型权重
 model = load_file(filename)

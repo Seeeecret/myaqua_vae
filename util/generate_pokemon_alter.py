@@ -60,8 +60,8 @@ def main():
 
     # 加载 Stable Diffusion v1.5 模型
     print("Loading Stable Diffusion model...")
-    model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id)
+    model_id = "/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/stable-diffusion-v1-5"
+    pipe = StableDiffusionPipeline.from_pretrained(model_id,safety_checker=None)
     pipe.to("cuda")
 
     # 如果提供了 LoRA 权重路径，则加载和融合 LoRA 权重
