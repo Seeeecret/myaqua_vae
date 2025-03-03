@@ -7,9 +7,7 @@ It includes mixed-precision training, learning rate scheduling, and logging.
 
 """
 
-import os
 import argparse
-import logging
 from glob import glob
 from venv import logger
 
@@ -19,25 +17,22 @@ from tqdm import tqdm
 # if not os.path.isdir(os.environ['HF_HOME']):
 #     os.makedirs(os.environ['HF_HOME'])
 import torch
-import torch.nn as nn
 from safetensors.torch import save_file
 
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adam, AdamW
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 import logging
 # Import the VAE model from the provided code
 from myVAEdesign3_WatermarkV4 import OneDimVAEWatermark as VAE
-import matplotlib.pyplot as plt
 import os
 import numpy as np
-from transformers import get_linear_schedule_with_warmup
 
 import matplotlib.pyplot as plt
 
-from watermark.V4.util import detect_watermark
+from watermark.util import detect_watermark
 
 
 # from sklearn.manifold import TSNE

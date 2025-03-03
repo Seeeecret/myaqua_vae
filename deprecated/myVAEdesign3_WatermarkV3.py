@@ -7,7 +7,7 @@ import sys
 sys.path.append("../watermark/")
 sys.path.append("../")
 
-from watermark.V4.util import detect_watermark
+from watermark.util import detect_watermark
 
 
 

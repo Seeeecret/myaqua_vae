@@ -8,7 +8,7 @@ import sys
 sys.path.append("../")
 sys.path.append("../../")
 
-from watermark.V4.util import detect_watermark
+from watermark.util import detect_watermark
 
 
 # 水印加在Z上的版本

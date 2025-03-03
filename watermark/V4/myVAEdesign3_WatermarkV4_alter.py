@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from watermark.V4.util import detect_watermark_in_mu
+from watermark.util import detect_watermark_in_mu
 
 
 # 水印加在μ上的版本，然后水印检测也在μ上
