@@ -32,7 +32,7 @@ def main(args):
         dataset = dataset['annotations']
         prompt_key = 'caption'
 
-    w_dir = f'/gpfs/essfs/iat/Tsinghua/shaoyh/data/fid_outputs/coco/{args.run_name}/w_gen'
+    w_dir = f'/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/fid_outputs/eval/{args.run_name}/w_gen'
     os.makedirs(w_dir, exist_ok=True)
 
     for i in tqdm(range(args.start, args.end)):

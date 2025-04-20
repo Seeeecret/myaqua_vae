@@ -84,7 +84,6 @@ class OneDimVAE(nn.Module):
         input = self.pad_sequence(input)  # [B, 1, adjusted_input_length]
 
         result = self.encoder(input)
-        # print(result.shape)
         result = torch.flatten(result, start_dim=1)
         result = self.to_latent(result)
         mu = self.fc_mu(result)
@@ -92,12 +91,7 @@ class OneDimVAE(nn.Module):
         return mu, log_var
 
     def decode(self, z, **kwargs):
-        # z.shape == [batch_size, d_latent]
-        # result = self.to_decode(z)
-        # result = result.view(-1, self.d_model[-1], self.last_length)
-        # result = self.decoder(result)
-        # result = self.final_layer(result)
-        # assert result.shape[1] == 1, f"{result.shape}"
+
         result = self.to_decode(z)
         # print(f"After to_decode: {result.shape}")
         result = result.view(-1, self.d_model[-1], self.last_length)

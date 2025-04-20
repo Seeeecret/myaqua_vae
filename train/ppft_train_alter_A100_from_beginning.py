@@ -116,7 +116,7 @@ def text_encoder_lora_state_dict(text_encoder):
 
 def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: str):
     text_encoder_config = PretrainedConfig.from_pretrained(
-        "/mnt/share_disk/dorin/AquaLoRA/checkpoints/stable-diffusion-v1-5",
+        args.pretrained_model_name_or_path,
         subfolder="text_encoder",
     )
     model_class = text_encoder_config.architectures[0]
@@ -556,11 +556,11 @@ def main(args):
     # Load the tokenizer
     if args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(
-            "/mnt/share_disk/dorin/AquaLoRA/checkpoints/stable-diffusion-v1-5/tokenizer", revision=args.revision, use_fast=False,
+            args.pretrained_model_name_or_path, revision=args.revision, use_fast=False,
             local_files_only=True)
     elif args.pretrained_model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
-            "/mnt/share_disk/dorin/AquaLoRA/checkpoints/stable-diffusion-v1-5",
+            args.pretrained_model_name_or_path,
             subfolder="tokenizer",
             revision=args.revision,
             use_fast=False,
@@ -1207,7 +1207,7 @@ def main(args):
                         logger.info(f"Saved state to {save_path}")
 
                     # save_lora_from_step = args.max_train_steps - 150  # 训练最后150步时开始保存
-                    if global_step >= args.max_train_steps - 150:
+                    if global_step >= args.max_train_steps - 5:
 
                         # unet = accelerator.unwrap_model(unet)
                         # unet = unet.to(torch.float32)

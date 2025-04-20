@@ -1207,7 +1207,7 @@ def main(args):
                         logger.info(f"Saved state to {save_path}")
 
                     # save_lora_from_step = args.max_train_steps - 150  # 训练最后150步时开始保存
-                    if global_step >= args.max_train_steps - 150:
+                    if global_step >= args.max_train_steps - 5:
 
                         unet = accelerator.unwrap_model(unet)
                         unet = unet.to(torch.float32)

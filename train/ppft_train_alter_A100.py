@@ -1205,7 +1205,7 @@ def main(args):
                         logger.info(f"Saved state to {save_path}")
 
                     # save_lora_from_step = args.max_train_steps - 100  # 训练最后100步时开始保存
-                    if global_step >= args.max_train_steps - 100:
+                    if global_step >= args.max_train_steps - 10:
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         os.makedirs(save_path, exist_ok=True)
                         accelerator.save_state(save_path)

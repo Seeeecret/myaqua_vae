@@ -85,7 +85,9 @@ class SecretDecoder(nn.Module):
     def __init__(self, output_size=64):
         super(SecretDecoder, self).__init__()
         self.output_size=output_size
-        self.model = efficientnet.efficientnet_b1(weights=EfficientNet_B1_Weights.IMAGENET1K_V1)
+        self.model = efficientnet.efficientnet_b1()
+        state_dict = torch.load("/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/efficientnet/efficientnet_b1_rwightman-533bc792.pth")
+        self.model.load_state_dict(state_dict)
         self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, output_size*2, bias=True)
 
     def forward(self, x):

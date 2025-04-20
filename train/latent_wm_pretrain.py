@@ -108,8 +108,19 @@ def main(args):
     sec_decoder = SecretDecoder(output_size=args.bit_num).cuda()
     # get params size
     torchsummary.summary(sec_decoder, (3, 512, 512))
-    
-    loss_fn_alex = lpips.LPIPS(net='vgg').cuda()
+    print("......Load VGG..............")
+    # loss_fn_alex = lpips.LPIPS(net='vgg',model_path='/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vgg/torch/vgg.pth').cuda()
+    import torchvision.models as models
+    from lpips import LPIPS
+
+    # 1. 手动加载本地 VGG 权重
+    vgg = models.vgg16(pretrained=False)  # 不自动下载
+    vgg.load_state_dict(torch.load('/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vgg/torch/vgg.pth'))  # 加载本地权重
+
+    # 2. 传入已加载的 VGG 模型
+    loss_fn_alex = LPIPS(net='vgg', model_path=None, pnet_rand=False, pretrained=True)
+    loss_fn_alex.net = vgg  # 替换内部的 VGG 模型
+    loss_fn_alex = loss_fn_alex.cuda()
     loss_fn_alex.requires_grad_(False)
 
     noise_config = ['Identity','Jpeg','CropandResize','GaussianBlur','GaussianNoise','ColorJitter']

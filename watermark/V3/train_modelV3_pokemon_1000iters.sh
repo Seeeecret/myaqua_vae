@@ -6,12 +6,12 @@
 # 启动训练命令
 accelerate launch TrainScript5_V3_1.py     \
     --train_data_dir /baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/juliensimon/stable-diffusion-v1-5-pokemon-lora/normalized_data \
-    --checkpoint_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/checkpoints/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc/  \
+    --checkpoint_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/checkpoints/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc_new/  \
     --num_epochs 3000 \
     --save_checkpoint_epochs 2400  \
     --input_length 797184 \
-    --output_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/output/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc \
+    --output_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/output/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc_new \
     --batch_size 10 \
-     --log_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/logs/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc.log \
+     --log_dir /baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/logs/WMVAE_pokemon_V3_rank4_3000epoch_1000iters_valc_new.log \
      --n_iters 1000
 

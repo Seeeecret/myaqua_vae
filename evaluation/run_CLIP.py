@@ -7,10 +7,12 @@ import json
 import torch
 from PIL import Image
 from tqdm import tqdm
-
+import sys
+sys.path.append('../')
 # diffusers & transformers
 from diffusers import DPMSolverMultistepScheduler, StableDiffusionPipeline
 from transformers import CLIPModel, CLIPProcessor
+from watermark.V8.wartermark2 import ImageShield
 
 
 def load_lora_weights(pipe: StableDiffusionPipeline, lora_path: str):
@@ -88,6 +90,8 @@ def main():
 
     # 准备设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 
     # 1. 加载 Stable Diffusion
     scheduler = DPMSolverMultistepScheduler.from_pretrained(args.model_id, subfolder='scheduler')

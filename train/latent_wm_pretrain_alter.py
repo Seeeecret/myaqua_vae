@@ -13,7 +13,6 @@ import torch.utils.checkpoint
 from torch.utils.data import Dataset
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.tensorboard import SummaryWriter
 
 from diffusers import (
     AutoencoderKL,
@@ -26,7 +25,7 @@ import lpips
 from utils.models import *
 from utils.misc import torch_to_pil
 from utils.noise_layers.noiser import Noiser
-import torchsummary
+# import torchsummary
 
 WINDOW_SIZE = 32
 KERNEL = torch.ones((1, 1, WINDOW_SIZE, WINDOW_SIZE), dtype=torch.float32) / (WINDOW_SIZE**2)
@@ -126,10 +125,25 @@ def main(args):
     sec_encoder = SecretEncoder(args.bit_num).cuda()
     sec_decoder = SecretDecoder(output_size=args.bit_num).cuda()
     # get params size
-    torchsummary.summary(sec_decoder, (3, 512, 512))
-    
+    # torchsummary.summary(sec_decoder, (3, 512, 512))
+    # TODO: change
+    print(".....Load VGG..............")
+    # loss_fn_alex = lpips.LPIPS(net='vgg',model_path='/baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/vgg/vgg16-397923af.pth').cuda()
     loss_fn_alex = lpips.LPIPS(net='vgg').cuda()
     loss_fn_alex.requires_grad_(False)
+    # import torchvision.models as models
+    # from lpips import LPIPS
+    #
+    # # 1. 手动加载本地 VGG 权重
+    # vgg = models.vgg16(pretrained=False)  # 不自动下载
+    # vgg.load_state_dict(torch.load('/baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/vgg/vgg16-397923af.pth'))  # 加载本地权重
+    #
+    # # 2. 传入已加载的 VGG 模型
+    # loss_fn_alex = LPIPS(net='vgg', model_path=None, pnet_rand=False, pretrained=True)
+    # loss_fn_alex.net = vgg  # 替换内部的 VGG 模型
+    # loss_fn_alex = loss_fn_alex.cuda()
+    # loss_fn_alex.requires_grad_(False)
+
 
     noise_config = ['Identity','Jpeg','CropandResize','GaussianBlur','GaussianNoise','ColorJitter']
     posibilities = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -148,7 +162,7 @@ def main(args):
     ], lr=args.lr, weight_decay=1e-4)
     scheduler = StepLR(optimizer, step_size=2, gamma=0.8)
 
-    writer = SummaryWriter(args.output_dir + '/logs')
+    # writer = SummaryWriter(args.output_dir + '/logs')
 
     def gen_combined_latents(latents, wm_latent, scale=1.0):
         cornerfy_aug = random.choice([True, False, False, False]) # 1/4 chance to cornerfy_aug
@@ -239,10 +253,10 @@ def main(args):
             pbar.update(1)
             iterations += 1
             print('lpips_loss: %.4f, msgloss: %.4f, prvl_loss: %.4f, loss: %.4f' % (lpips_loss, msgloss, prvl_loss, loss))
-            writer.add_scalar('Loss/train', loss, iterations)
-            writer.add_scalar('Loss/lpips_loss', lpips_loss, iterations)
-            writer.add_scalar('Loss/prvl_loss', prvl_loss, iterations)
-            writer.add_scalar('Loss/msgloss', msgloss, iterations)
+            # writer.add_scalar('Loss/train', loss, iterations)
+            # writer.add_scalar('Loss/lpips_loss', lpips_loss, iterations)
+            # writer.add_scalar('Loss/prvl_loss', prvl_loss, iterations)
+            # writer.add_scalar('Loss/msgloss', msgloss, iterations)
 
         watermarked_image_pil = torch_to_pil(watermarked_image)[0]
         watermarked_image_pil.save(f"{args.output_dir}/log_images/watermarked_{epoch}_{batch_idx}.png")
@@ -257,7 +271,7 @@ def main(args):
             decoded_msg = torch.argmax(decoded_msg, dim=2)
             acc = 1 - torch.abs(decoded_msg - msg_val).sum().float() / (args.bit_num * args.batch_size)
             print(f"Epoch {epoch}: acc {acc}")
-            writer.add_scalar('Accuracy/train', acc, epoch)
+            # writer.add_scalar('Accuracy/train', acc, epoch)
 
         print(f"Epoch {epoch}: loss {loss}, lpips_loss {lpips_loss}, msgloss {msgloss}, prvl_loss {prvl_loss}")
 
@@ -268,7 +282,7 @@ def main(args):
             'sec_encoder': sec_encoder.state_dict(),
         }, f"{args.output_dir}/checkpoints/state_dict_{epoch}.pth")
 
-    writer.close()
+    # writer.close()
 
 
 if __name__ == "__main__":
@@ -286,10 +300,10 @@ if __name__ == "__main__":
     argparser.add_argument('--lr', type=float, default=0.001)
     args = argparser.parse_args()
 
-    if os.path.exists(args.output_dir) is False:
-        os.makedirs(args.output_dir)
-        os.makedirs(args.output_dir + '/logs')
-        os.makedirs(f'{args.output_dir}/checkpoints')
-        os.makedirs(f'{args.output_dir}/log_images')
+
+    os.makedirs(args.output_dir,exist_ok=True)
+    os.makedirs(args.output_dir + '/logs',exist_ok=True)
+    os.makedirs(f'{args.output_dir}/checkpoints',exist_ok=True)
+    os.makedirs(f'{args.output_dir}/log_images',exist_ok=True)
 
     main(args)

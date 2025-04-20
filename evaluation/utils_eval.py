@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append("../")
 import torch
 import io
@@ -34,6 +35,7 @@ import PIL.Image as Image
 import numpy as np
 from tqdm import tqdm
 
+
 def simple_sample(
         model,
         sampler,
@@ -48,7 +50,9 @@ def simple_sample(
         num_inference_steps: Union[int, List[int]] = 50,
         guidance_scale: Union[float, List[float]] = 7.5,
         batch_size: int = 1,
-        save: bool = True
+        save: bool = True,
+        KNOTS: str = None,
+        SEC_LORA: str = None
 ):
     if negative_prompt is not None:
         assert len(negative_prompt) == len(prompt)
@@ -78,8 +82,49 @@ def simple_sample(
         pipe = StableDiffusionPipeline.from_pretrained(model, safety_checker=None)
 
     if lora is not None:
-        pipe.load_lora_weights(lora, weight_name="pytorch_lora_weights.safetensors")
-        pipe.fuse_lora(lora_scale=lora_scale)
+        if KNOTS is not None:
+            if KNOTS.endswith('.safetensors'):
+                from safetensors import safe_open
+                lora_weights = {}
+                with safe_open(KNOTS, framework="pt", device="cpu") as f:
+                    for key in f.keys():
+                        lora_weights[key] = f.get_tensor(key)
+            else:  # 支持.pt或.bin格式
+                lora_weights = torch.load(KNOTS, map_location="cpu")
+            # 获取UNet的原始状态字典
+            unet_state_dict = pipe.unet.state_dict()
+            updated = 0
+            skipped = 0
+            # 遍历所有LoRA权重键
+            for lora_key in lora_weights:
+                # 调整键名格式（移除_0后缀）
+                original_key = lora_key.replace("_0.weight", ".weight")
+                if original_key in unet_state_dict:
+                    # 获取原权重和LoRA权重
+                    original_tensor = unet_state_dict[original_key]
+                    lora_tensor = lora_weights[lora_key].to(
+                        device=original_tensor.device,
+                        dtype=original_tensor.dtype
+                    )
+                    # 合并权重（假设LoRA是增量权重）
+                    unet_state_dict[original_key] = original_tensor + lora_tensor
+                    updated += 1
+                else:
+                    print(f"[WARN] Key mismatch: {original_key}")
+                    skipped += 1
+            # 加载更新后的状态字典
+            pipe.unet.load_state_dict(unet_state_dict, strict=False)
+            print(f"[INFO] Successfully updated {updated} weights, skipped {skipped} keys")
+        else:
+            if SEC_LORA is not None:
+                pipe.load_lora_weights(SEC_LORA, weight_name='pytorch_lora_weights.safetensors', adapter_name="loranew")
+                pipe.load_lora_weights(lora, weight_name='pytorch_lora_weights.safetensors', adapter_name="aqualora")
+                pipe.set_adapters(["loranew", "aqualora"])
+                pipe.fuse_lora(adapter_names=["loranew", "aqualora"], lora_scale=lora_scale)
+
+            else:
+                pipe.load_lora_weights(lora, weight_name="pytorch_lora_weights.safetensors",adapter_name="aqualora")
+                pipe.fuse_lora(adapter_names=["aqualora"],lora_scale=lora_scale)
     if sampler == "ddim":
         pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
     elif sampler == "euler":
@@ -108,30 +153,33 @@ def simple_sample(
 
     generator = [torch.Generator(device=device).manual_seed(seed[i]) for i in range(len(seed))]
 
-    for i in range(len(prompt)//batch_size):
+    for i in range(len(prompt) // batch_size):
         images = pipe(
-                prompt[i*batch_size:(i+1)*batch_size],
-                negative_prompt=negative_prompt[i*batch_size:(i+1)*batch_size] if negative_prompt is not None else None,
-                height=height[i],
-                width=width[i],
-                num_inference_steps=num_inference_steps[i],
-                guidance_scale=guidance_scale[i],
-                generator = generator[i*batch_size:(i+1)*batch_size]
-                ).images
+            prompt[i * batch_size:(i + 1) * batch_size],
+            negative_prompt=negative_prompt[
+                            i * batch_size:(i + 1) * batch_size] if negative_prompt is not None else None,
+            height=height[i],
+            width=width[i],
+            num_inference_steps=num_inference_steps[i],
+            guidance_scale=guidance_scale[i],
+            generator=generator[i * batch_size:(i + 1) * batch_size]
+        ).images
         if save:
-            for j,img in enumerate(images):
+            for j, img in enumerate(images):
                 if isinstance(output_dir, list):
                     img.save(f"{output_dir[i]}")
                 else:
                     img.save(f"{output_dir}/{seed[i]}_{j}.png")
     return images
 
+
 # --------------------------------------------------------------------------
 
 def calculate_fpr(tau, k):
     sum_combinations = sum(comb(k, i) for i in range(tau + 1, k + 1))
-    fpr = 1 / (2**k) * sum_combinations
+    fpr = 1 / (2 ** k) * sum_combinations
     return fpr
+
 
 def get_threshold(k, fpr):
     tau = 0
@@ -139,12 +187,13 @@ def get_threshold(k, fpr):
         tau += 1
     return tau
 
+
 class SecretDecoder(nn.Module):
     def __init__(self, output_size=64):
         super(SecretDecoder, self).__init__()
-        self.output_size=output_size
+        self.output_size = output_size
         self.model = efficientnet.efficientnet_b1(weights=EfficientNet_B1_Weights.IMAGENET1K_V1)
-        self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, output_size*2, bias=True)
+        self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, output_size * 2, bias=True)
 
     def forward(self, x):
         x = F.interpolate(
@@ -153,11 +202,12 @@ class SecretDecoder(nn.Module):
         decoded = self.model(x).view(-1, self.output_size, 2)
         return decoded
 
+
 def simple_decode(
         bitnum,
         msgdecoder_path,
         img_paths: List[str],
-        msg_gt = None,
+        msg_gt=None,
         resolution: int = 512,
         tpr_threshold: float = 1e-3
 ):
@@ -219,6 +269,7 @@ vae = None
 pipe = None
 pipe2 = None
 
+
 def resize_decorator(distortion_func):
     def wrapper(encoded_image, *args, **kwargs):
         original_size = encoded_image.shape[2:]  # Save original size
@@ -227,7 +278,9 @@ def resize_decorator(distortion_func):
         # Apply the distortion
         distorted_image = distortion_func(encoded_image, *args, **kwargs)
         return distorted_image
+
     return wrapper
+
 
 def torch_to_pil(images):
     images = images.detach().cpu().float()
@@ -241,39 +294,44 @@ def torch_to_pil(images):
         pil_images = [Image.fromarray(image) for image in images]
     return pil_images
 
+
 def SDEdit(image, version=1):
     global pipe
     global pipe2
     if version == 1:
         if pipe is None:
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained('runwayml/stable-diffusion-v1-5', safety_checker=None).to('cuda')
+            pipe = StableDiffusionImg2ImgPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',
+                                                                  safety_checker=None).to('cuda')
         cur_pipe = pipe
     elif version == 2:
         if pipe2 is None:
-            pipe2 = StableDiffusionImg2ImgPipeline.from_pretrained('stabilityai/stable-diffusion-2-1', safety_checker=None).to('cuda')
+            pipe2 = StableDiffusionImg2ImgPipeline.from_pretrained('stabilityai/stable-diffusion-2-1',
+                                                                   safety_checker=None).to('cuda')
         cur_pipe = pipe2
     oimages = torch_to_pil(image)
-    images = cur_pipe(prompt="masterpiece", 
-                  image=oimages,
-                  strength=0.1 if version == 1 else 0.2,
-                  num_inference_steps=10,
-                  guidance_scale=7.5 ,
-                  output_type='pt').images
+    images = cur_pipe(prompt="masterpiece",
+                      image=oimages,
+                      strength=0.1 if version == 1 else 0.2,
+                      num_inference_steps=10,
+                      guidance_scale=7.5,
+                      output_type='pt').images
     return images.squeeze(0)
 
+
 @resize_decorator
-def crop(encoded_image,size=(460, 460)):
+def crop(encoded_image, size=(460, 460)):
     distorted_image = T.RandomCrop(size=size)(encoded_image)
     return distorted_image
 
-def distorsion_unit(encoded_image,type):
+
+def distorsion_unit(encoded_image, type):
     if type == 'color_jitter':
         distorted_image = K.augmentation.ColorJiggle(
-                        brightness=(0.9,1.1),
-                        contrast=(0.9,1.1),
-                        saturation=(0.9,1.1),
-                        hue=(-0.1,0.1),
-                        p=1)(encoded_image)
+            brightness=(0.9, 1.1),
+            contrast=(0.9, 1.1),
+            saturation=(0.9, 1.1),
+            hue=(-0.1, 0.1),
+            p=1)(encoded_image)
     elif type == 'crop':
         distorted_image = crop(encoded_image)
     elif type == 'blur':
@@ -289,16 +347,17 @@ def distorsion_unit(encoded_image,type):
         pil_image = Image.open(buffer)
         distorted_image = T.ToTensor()(pil_image)
     elif type == 'rotation':
-        distorted_image = K.augmentation.RandomRotation(degrees=(15,15), p=1)(encoded_image)
+        distorted_image = K.augmentation.RandomRotation(degrees=(15, 15), p=1)(encoded_image)
     elif type == 'sharpness':
         distorted_image = K.augmentation.RandomSharpness(sharpness=10., p=1)(encoded_image)
     elif type == 'SDEdit':
         distorted_image = SDEdit(encoded_image)
     elif type == 'SDEdit2':
-        distorted_image = SDEdit(encoded_image,version=2)
+        distorted_image = SDEdit(encoded_image, version=2)
     else:
         raise ValueError(f'Wrong distorsion type in add_distorsion().')
     return distorted_image
+
 
 def apply_distorsion(input_image_path, output_image_path, type):
     for path in tqdm(input_image_path):
@@ -309,5 +368,3 @@ def apply_distorsion(input_image_path, output_image_path, type):
         distorted_image_path = os.path.join(output_image_path, type, os.path.basename(path))
         out = T.ToPILImage()(distorted_image.squeeze(0))
         out.save(distorted_image_path)
-
-

@@ -52,9 +52,7 @@ def detect_watermark(
         else:
             (mask [B], R [B], log10_pvalue [B]) - 附加置信度信息
     """
-    # ------------------------------
-    # 1. 输入验证与预处理
-    # ------------------------------
+    # 输入验证与预处理
     assert z.dim() == 2, f"潜在向量 z 必须是二维张量 [B, D]，当前维度 {z.dim()}"
     assert carrier.dim() == 2 and carrier.shape[0] == 1, \
         f"密钥 carrier 必须是二维张量 [1, D]，当前形状 {carrier.shape}"
@@ -63,9 +61,6 @@ def detect_watermark(
     # 确保carrier是单位向量（L2范数归一化）
     carrier = F.normalize(carrier, p=2, dim=1)  # [1, D]
     cos_theta = torch.tensor(np.cos(angle), device=z.device)  # 标量
-    # ------------------------------
-    # 2. 核心计算
-    # ------------------------------
     # 计算点积和范数（保持维度以便广播）
     dot_product = torch.matmul(z, carrier.T)  # [B, 1]
     norm_z = torch.norm(z, p=2, dim=1, keepdim=True)  # [B, 1]
@@ -74,9 +69,7 @@ def detect_watermark(
     R = R.squeeze(1)  # [B]
     # 检测条件：R > 0
     mask = R > 0
-    # ------------------------------
-    # 3. 置信度计算（可选）
-    # ------------------------------
+    # 置信度计算
     if return_confidence:
         # 计算余弦相似度（添加eps防止除零）
         cosine_sim = dot_product / (norm_z + eps)  # [B, 1]

@@ -27,6 +27,8 @@ parser.add_argument("--msgdecoder", type=str, default=None)
 parser.add_argument("--msg_gt", type=str, default=None)
 parser.add_argument("--resolution", type=int, default=512)
 parser.add_argument("--tpr_threshold", type=float, default=1e-6)
+parser.add_argument("--SEC_LORA",type=str,default=None)
+
 
 args = parser.parse_args()
 
@@ -35,7 +37,9 @@ with open(args.prompt_path, 'r') as f:
     prompts = f.readlines()
     prompts = [prompt.strip() for prompt in prompts]
 negative_prompt = ['out of frame'] * len(prompts)
-
+# 判断args.msgdecoder的路径是否存在
+if args.msgdecoder is not None:
+    assert os.path.exists(args.msgdecoder)
 output_dir = args.output_dir
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -55,6 +59,7 @@ for seed in range(10):
         num_inference_steps=args.steps,
         guidance_scale=args.cfg,
         batch_size=1,
+        SEC_LORA=args.SEC_LORA
     )
 
 if args.msgdecoder is not None:
