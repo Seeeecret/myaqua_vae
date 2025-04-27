@@ -20,8 +20,15 @@ from diffusers import (
     DiffusionPipeline,
     UNet2DConditionModel,
 )
+import ssl
 import lpips
+import torch
 
+# 保存原始的默认 SSL 上下文创建函数
+original_ssl_context = ssl._create_default_https_context
+
+# 临时设置为忽略证书验证的上下文
+ssl._create_default_https_context = ssl._create_unverified_context
 from utils.models import *
 from utils.misc import torch_to_pil
 from utils.noise_layers.noiser import Noiser
@@ -128,9 +135,11 @@ def main(args):
     # torchsummary.summary(sec_decoder, (3, 512, 512))
     # TODO: change
     print(".....Load VGG..............")
-    # loss_fn_alex = lpips.LPIPS(net='vgg',model_path='/baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/vgg/vgg16-397923af.pth').cuda()
     loss_fn_alex = lpips.LPIPS(net='vgg').cuda()
     loss_fn_alex.requires_grad_(False)
+
+    # loss_fn_alex = lpips.LPIPS(net='vgg',model_path='/baai-cwm-1/baai_cwm_ml/algorithm/ziyang.yan/myaqua_vae/vgg/vgg16-397923af.pth').cuda()
+
     # import torchvision.models as models
     # from lpips import LPIPS
     #

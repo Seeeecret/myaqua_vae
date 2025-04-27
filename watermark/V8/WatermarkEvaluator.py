@@ -69,7 +69,7 @@ class WatermarkEvaluator:
 
         return clean_image, wm_image
 
-    def compute_similarity(self, image):
+    def compute_bit_acc(self, image):
         """计算图像与水印模板的相似度"""
         inverted_latents = self.shield.invert_image(self.pipe, image)
         return self.shield.extract_watermark(inverted_latents)[1]
@@ -91,14 +91,14 @@ class WatermarkEvaluator:
                 seed=self.seed + i
             )
 
-            # 计算未加水印图像得分（负样本）
-            score_clean = self.compute_similarity(clean_img)
+            # 计算未加水印图像提取出的水印比特的准确率（负样本）
+            score_clean = self.compute_bit_acc(clean_img)
             scores.append(score_clean)
             labels.append(0)
             pbar.update(1)
 
-            # 计算加水印图像得分（正样本）
-            score_wm = self.compute_similarity(wm_img)
+            # 计算加水印图像提取出的水印比特的准确率（正样本）
+            score_wm = self.compute_bit_acc(wm_img)
             scores.append(score_wm)
             labels.append(1)
             pbar.update(1)

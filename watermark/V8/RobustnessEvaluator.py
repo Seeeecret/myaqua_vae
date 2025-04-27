@@ -45,6 +45,7 @@ class RobustnessEvaluator(WatermarkEvaluator):
         """将命令行参数转换为失真配置字典"""
         return {
             'rotation_degree': self.args.r_degree,
+            "rotation_degree_same": self.args.r_degree_same,
             'jpeg_quality': self.args.jpeg_ratio,
             'crop_scale': self.args.crop_scale,
             'crop_ratio': self.args.crop_ratio,
@@ -69,6 +70,12 @@ class RobustnessEvaluator(WatermarkEvaluator):
             transform_chain.append(
                 transforms.RandomRotation((-self.distortion_config['rotation_degree'],
                                            self.distortion_config['rotation_degree']))
+            )
+
+        if self.distortion_config.get('rotation_degree_same'):
+            transform_chain.append(
+                transforms.RandomRotation((-self.distortion_config['rotation_degree_same'],
+                                           self.distortion_config['rotation_degree_same']))
             )
 
         # 2. 随机裁剪
@@ -145,6 +152,7 @@ class RobustnessEvaluator(WatermarkEvaluator):
             'auc': 0,
             'tpr_at_1fpr': 0,
             'scores': [],
+            "bit_acc": 0,
             'labels': []
         }
 
@@ -174,9 +182,9 @@ class RobustnessEvaluator(WatermarkEvaluator):
                 clean_img, wm_img, seed=self.seed + i
             )
 
-            # 计算失真后相的水印的分
-            score_clean = self.compute_similarity(distorted_clean)
-            score_wm = self.compute_similarity(distorted_wm)
+            # 计算失真后的水印的识别bit accuracy
+            score_clean = self.compute_bit_acc(distorted_clean)
+            score_wm = self.compute_bit_acc(distorted_wm)
 
             # scores.extend([score_clean, score_wm])
             # labels.extend([0, 1])
@@ -192,9 +200,6 @@ class RobustnessEvaluator(WatermarkEvaluator):
                 )
 
         # 计算指标
-        # fpr, tpr, _ = roc_curve(labels, scores)
-        # roc_auc = auc(fpr, tpr)
-        # tpr_at_1fpr = tpr[np.argmax(fpr >= 0.01)] if np.any(fpr >= 0.01) else 0
 
         fpr, tpr, thresholds = roc_curve(results['labels'], results['scores'])
         results['auc'] = auc(fpr, tpr)
@@ -202,8 +207,10 @@ class RobustnessEvaluator(WatermarkEvaluator):
 
         # 计算指标
         fpr, tpr, thresholds = roc_curve(results['labels'], results['scores'])
+        bit_acc = np.mean(results['scores'][1::2])
         results['auc'] = auc(fpr, tpr)
         results['tpr_at_1fpr'] = tpr[np.argmax(fpr >= 0.01)] if np.any(fpr >= 0.01) else 0
+        results['bit_acc'] = bit_acc
 
         # 绘制ROC曲线
         plt.figure(figsize=(8, 6))
@@ -229,21 +236,10 @@ class RobustnessEvaluator(WatermarkEvaluator):
         print(f"Configuration: {results['config']}")
         print(f"AUC: {results['auc']:.4f}")
         print(f"TPR@1%FPR: {results['tpr_at_1fpr']:.4f}")
+        print(f"Bit accuracy: {bit_acc}")
         print(f"Watermark Score Drop: {np.mean(results['scores'][1::2]) - np.mean(results['scores'][::2]):.4f}")
 
-        # print("\nRobustness Test Results")
-        # print("=" * 40)
-        # print(f"Configuration: {active_config}")
-        # print(f"AUC: {roc_auc:.4f}")
-        # print(f"TPR@1%FPR: {tpr_at_1fpr:.4f}")
-        # print(f"Watermark Score Drop: {np.mean(scores[1::2]) - np.mean(scores[::2]):.4f}")
-        # return {
-        #     'config': active_config,
-        #     'auc': roc_auc,
-        #     'tpr_at_1fpr': tpr_at_1fpr,
-        #     'scores': scores,
-        #     'labels': labels
-        # }
+
         return results
 
     def save_comparison(self, clean, wm, distorted_clean, distorted_wm, idx):
@@ -266,6 +262,11 @@ class RobustnessEvaluator(WatermarkEvaluator):
 
 
 if __name__ == "__main__":
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # 然后在代码中使用这个device变量而不是硬编码的.cuda()
     parser = argparse.ArgumentParser(description="Watermark Robustness Evaluation")
 
     # 实验基础参数
@@ -278,6 +279,7 @@ if __name__ == "__main__":
 
     # 失真参数（与Tree-Ring对齐）
     parser.add_argument("--r_degree", type=float, help="旋转角度（如75表示±75度）")
+    parser.add_argument("--r_degree_same", type=float, help="旋转角度（如75表示75度）")
     parser.add_argument("--jpeg_ratio", type=int, help="JPEG压缩质量（1-100）")
     parser.add_argument("--crop_scale", type=float, help="裁剪比例（如0.75）")
     parser.add_argument("--crop_ratio", type=float, help="裁剪宽高比（如0.75）")

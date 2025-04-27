@@ -30,8 +30,6 @@ class ImageShield:
         self.marklength = self.latentlength // (self.ch * self.hw ** 2)
         # self.threshold = self.ch * self.hw ** 2 // 2  # 多数投票阈值
 
-
-
         # 初始化密钥
         self.key = get_random_bytes(32)
         self.nonce = get_random_bytes(12)
@@ -178,7 +176,7 @@ class ImageShield:
         :return: 聚合后的水印矩阵 [1, C, H//hw, W//hw]
         """
         """与论文代码完全一致的多数投票聚合"""
-        # 参数计算
+        # 参数计算，默认 self.ch=1, self.hw=8, self.height=64
         ch_stride = 4 // self.ch
         hw_stride = self.height // self.hw
         ch_list = [ch_stride] * self.ch  # 通道分割策略
@@ -203,7 +201,7 @@ class ImageShield:
             dim=0
         )
 
-        # 多数投票（关键差异点）
+        # 多数投票
         # sum over all duplicated blocks [总块数, 块通道数, 块高度, 块宽度] -> [块通道数, 块高度, 块宽度]
         vote = torch.sum(split_dim3, dim=0)
         vote[vote <= self.threshold] = 0
@@ -263,10 +261,8 @@ class ImageShield:
         decoded = decrypted_bits.reshape(self.repeat_watermark.shape)
 
         decoded_tensor = torch.from_numpy(decoded)
-        # 直接计算模板位TP的比特准确率，缺少论文代码中的多数投票聚合
+        # TODO: 待实现多数投票聚合，返回还原水印reversed_watermark的变量 直接计算模板位TP的比特准确率，缺少论文代码中的多数投票聚合 2025.4.8 已实现
         # accuracy = ((decoded == self.repeat_watermark.cpu()).float()).mean()
-
-        # TODO: 待实现多数投票聚合，返回还原水印reversed_watermark的变量
         # 多数投票聚合
         aggregated_watermark = self._majority_vote_aggregation_old(decoded_tensor)
         # 计算聚合后的准确率（与原始水印比较）
@@ -281,6 +277,7 @@ class ImageShield:
         try:
             return cipher.decrypt(data)
         except ValueError as e:
+            print("ValueError occur in decrypt")
             if len(data) % 64 != 0:
                 # 填充处理
                 padded_data = data + b'\0' * (64 - len(data) % 64)
