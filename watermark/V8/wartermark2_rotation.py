@@ -1,3 +1,4 @@
+# 核心代码逻辑（基于watermark.py改造）
 from contextlib import contextmanager
 from typing import Tuple
 
@@ -7,21 +8,22 @@ from torchvision import transforms as tvt
 import torch
 from diffusers import DDIMInverseScheduler, StableDiffusionPipeline
 from scipy.stats import norm, truncnorm
-from functools import reduce
 import numpy as np
 from PIL import Image
 import torch.nn.functional as F
 from Crypto.Cipher import ChaCha20
 from Crypto.Random import get_random_bytes
+
+
 # from diffusers import StableDiffusionInversePipeline  # 新版专用管道
 
 
 class ImageShield:
-    def __init__(self, ch_factor=1, hw_factor=4, height=64, width=64, device="cuda"):
+    def __init__(self, ch_factor=1, hw_factor=8, height=64, width=64, device="cuda"):
         self.ch = ch_factor  # 通道重复因子（Stable Diffusion潜在空间通道数4）
         self.hw = hw_factor  # 空间重复因子（控制水印密度）
-        self.height = height  # 潜在空间高度（原图像素高/8）
-        self.width = width  # 潜在空间宽度（原图像素宽/8）
+        self.height = height  # 潜在空间高度（原图高/8）
+        self.width = width  # 潜在空间宽度（原图宽/8）
         self.device = device
 
         # 计算水印参数
@@ -42,9 +44,16 @@ class ImageShield:
 
     def create_watermark(self):
         # 生成模板比特（TP）
-        # TODO：这里可以试着优化成自定义的?
-        self.watermark = torch.randint(0, 2, [1, 4 // self.ch, self.height // self.hw,
+        msg = torch.randint(0, 2, [1, 1, self.height // self.hw,
                                               self.width // self.hw]).to(self.device)
+        # TODO：现在msg是一个shape为 (1,1,8,8)的tensor，我现在需要将其复制三次，每次都顺时针旋转90度，并最后拼接成一个shape为 (1,4,8,8)的tensor
+        # 旋转90度并拼接
+        msg_rotated = [torch.rot90(msg, k=i, dims=[2, 3]) for i in range(4)]
+        # 转换为Tensor
+        msg_rotated = torch.cat(msg_rotated, dim=1)  # 拼接成(1,4,8,8)
+        self.rotation_watermark = msg
+
+        self.watermark = msg_rotated
 
         # 扩展模板比特到潜在空间尺寸
         expanded_tp = self.watermark.repeat(1, self.ch, self.hw, self.hw)
@@ -101,11 +110,11 @@ class ImageShield:
         # 分层细化（类似HSTR的空间部分）
         masks = []
         for l in range(levels):
-            μ = 2 ** l
+            u = 2 ** l
             # 分割为μ×μ区域并平均
-            pooled = F.avg_pool2d(mask, μ, stride=μ)
+            pooled = F.avg_pool2d(mask, u, stride=u)
             # 上采样回原尺寸
-            upsampled = F.interpolate(pooled, scale_factor=μ, mode='nearest')
+            upsampled = F.interpolate(pooled, scale_factor=u, mode='nearest')
             masks.append(upsampled)
         return torch.stack(masks).mean(dim=0)
 
@@ -260,14 +269,43 @@ class ImageShield:
         decoded = decrypted_bits.reshape(self.repeat_watermark.shape)
 
         decoded_tensor = torch.from_numpy(decoded)
-
+        # TODO: 待实现多数投票聚合，返回还原水印reversed_watermark的变量 直接计算模板位TP的比特准确率，缺少论文代码中的多数投票聚合 2025.4.8 已实现
+        # accuracy = ((decoded == self.repeat_watermark.cpu()).float()).mean()
         # 多数投票聚合
         aggregated_watermark = self._majority_vote_aggregation_old(decoded_tensor)
         # 计算聚合后的准确率（与原始水印比较）
-        original_watermark = self.watermark.squeeze(0)  # [1,C,h,w] -> [C,h,w]
-        accuracy = (aggregated_watermark == original_watermark.cpu()).float().mean().item()
 
-        return decoded, accuracy
+        accuracy,similarities = self.compute_accuracy(aggregated_watermark)
+
+        # original_watermark = self.watermark.squeeze(0)  # [1,C,h,w] -> [C,h,w]
+        # accuracy = (aggregated_watermark == original_watermark.cpu()).float().mean().item()
+
+        return decoded, accuracy,similarities
+
+    def compute_accuracy(self, aggregated_watermark):
+        """计算投票后的latent和rotation_watermark的相似度"""
+        # 此时aggregated_watermark的结构为 [1,4,8,8]
+        
+        # 处理rotation_watermark，将其变为[1,8,8]形状便于比较
+        rotation_watermark = self.rotation_watermark.squeeze()  # [1,1,8,8] -> [1,8,8] 或 [8,8]
+        if len(rotation_watermark.shape) == 2:
+            rotation_watermark = rotation_watermark.unsqueeze(0)  # 确保形状为[1,8,8]
+        
+        # 计算相似度此时aggregated_watermark的每个channel和origin_rotation_watermark的相似度
+        # 并用一个数组保存所有相似度
+        similarities = []
+        for i in range(aggregated_watermark.shape[1]):  # 遍历通道维度(第二个维度)
+            # 取出当前通道 [8,8]
+            current_channel = aggregated_watermark[:, i,:,:]  # 从[1,4,8,8]中正确取出[8,8]
+            # 计算当前通道与原始水印的相似度（使用相等元素的比例作为相似度）
+            similarity = (current_channel == rotation_watermark.cpu()).float().mean().item()
+            similarities.append(similarity)
+        
+        # 取出数组中的最大值
+        max_accuracy = max(similarities)
+        
+        return max_accuracy, similarities
+
 
     def _chacha_decrypt(self, data: bytes) -> bytes:
         """优化的ChaCha20解密实现"""
@@ -281,48 +319,3 @@ class ImageShield:
                 padded_data = data + b'\0' * (64 - len(data) % 64)
                 return cipher.decrypt(padded_data)[:len(data)]
             raise e
-
-    # def _majority_vote_aggregation(self, decoded_tensor: torch.Tensor) -> torch.Tensor:
-    #     """修正后的多数投票聚合函数"""
-    #     # 获取参数
-    #     ch_factor = self.ch  # 通道复制因子
-    #     hw_factor = self.hw  # 空间复制因子
-    #     bs, c, h, w = decoded_tensor.shape  # 输入形状 [1,4,64,64]
-    #
-    #     # 确保输入维度合法性
-    #     assert c == 4, f"潜在空间通道数必须为4，实际得到{c}"
-    #     assert h % hw_factor == 0 and w % hw_factor == 0, "HW维度必须能被复制因子整除"
-    #
-    #     # 分块逻辑 ------------------------------------------------------
-    #     # 步骤1：按通道分块 [1,4,64,64] -> [ch_factor, (4/ch_factor), 64, 64]
-    #     # 例如 ch_factor=1 时分为 [1,4,64,64]
-    #     channel_blocks = torch.chunk(decoded_tensor, ch_factor, dim=1)
-    #
-    #     # 步骤2：每个通道块再按高度分块 [N, c_sub, h, w] -> [N*hw_factor, c_sub, h_sub, w]
-    #     height_blocks = []
-    #     for c_block in channel_blocks:
-    #         h_blocks = torch.chunk(c_block, hw_factor, dim=2)
-    #         height_blocks.extend(h_blocks)
-    #
-    #     # 步骤3：每个高度块再按宽度分块 [N, c_sub, h_sub, w] -> [N*hw_factor, c_sub, h_sub, w_sub]
-    #     spatial_blocks = []
-    #     for h_block in height_blocks:
-    #         w_blocks = torch.chunk(h_block, hw_factor, dim=3)
-    #         spatial_blocks.extend(w_blocks)
-    #
-    #     # 多数投票聚合 --------------------------------------------------
-    #     aggregated = []
-    #     for block in spatial_blocks:
-    #         # 计算每个块的多数值 [bs, c_sub, h_sub, w_sub]
-    #         sum_val = block.sum()
-    #         vote = 1 if sum_val > self.threshold else 0
-    #         aggregated.append(vote)
-    #
-    #     # 重组为原始水印形状 [1, (4/ch_factor), (h/hw_factor), (w/hw_factor)]
-    #     watermark_shape = [
-    #         1,
-    #         4 // ch_factor,
-    #         h // hw_factor,
-    #         w // hw_factor
-    #     ]
-    #     return torch.tensor(aggregated, device=self.device).reshape(watermark_shape).float()
