@@ -51,6 +51,7 @@ class ImageShield:
         msg_rotated = [torch.rot90(msg, k=i, dims=[2, 3]) for i in range(4)]
         # 转换为Tensor
         msg_rotated = torch.cat(msg_rotated, dim=1)  # 拼接成(1,4,8,8)
+        print(msg_rotated)
         self.rotation_watermark = msg
 
         self.watermark = msg_rotated

@@ -271,11 +271,14 @@ if __name__ == "__main__":
 
     # 实验基础参数
     parser.add_argument("--run_name", required=True, help="实验名称标识")
-    parser.add_argument("--model_path", default="/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/stable-diffusion-v1-5")
-    parser.add_argument("--num_samples", type=int, default=1000)
+    parser.add_argument("--model_path",
+                        default="/baai-cwm-nas/algorithm/ziyang.yan/wzyBackup/stable-diffusion-v1-5")
+    parser.add_argument("--num_samples", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--dataset",type=str,default="/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/Stable-Diffusion-Prompts")
-    parser.add_argument("--output_dir", default="/baai-cwm-1/baai_cwm_ml/public_data/scenes/lightwheelocc-v1.0/vae_data/eval/result/robust")
+    parser.add_argument("--dataset", type=str,
+                        default="/baai-cwm-nas/algorithm/ziyang.yan/wzyBackup/Stable-Diffusion-Prompts")
+    parser.add_argument("--output_dir",
+                        default="/baai-cwm-nas/algorithm/ziyang.yan/nips_2025/vae_data/eval/V8/robust")
 
     # 失真参数（与Tree-Ring对齐）
     parser.add_argument("--r_degree", type=float, help="旋转角度（如75表示±75度）")

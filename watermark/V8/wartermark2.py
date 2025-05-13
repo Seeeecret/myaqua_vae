@@ -86,29 +86,6 @@ class ImageShield:
         return torch.from_numpy(z).reshape(1, 4, self.height, self.width).float().cuda()
 
 
-
-    def detect_tamper(self, inverted_noise):
-        # 空间分层细化检测（改造自HSTR）
-        inverted_bits = (inverted_noise > 0).int()
-        CMP = (inverted_bits == self.m.to(inverted_bits.device)).float()
-
-        # 分层空间聚合
-        M_ini = CMP.mean(dim=1)  # 通道平均
-        refined_mask = self.hierarchical_refinement(M_ini, levels=3)
-        return refined_mask
-
-    def hierarchical_refinement(self, mask, levels=3):
-        # 分层细化（类似HSTR的空间部分）
-        masks = []
-        for l in range(levels):
-            μ = 2 ** l
-            # 分割为μ×μ区域并平均
-            pooled = F.avg_pool2d(mask, μ, stride=μ)
-            # 上采样回原尺寸
-            upsampled = F.interpolate(pooled, scale_factor=μ, mode='nearest')
-            masks.append(upsampled)
-        return torch.stack(masks).mean(dim=0)
-
     @contextmanager
     def temporary_scheduler(self,pipe, target_scheduler):
         """临时切换调度器的上下文管理器"""
@@ -281,48 +258,3 @@ class ImageShield:
                 padded_data = data + b'\0' * (64 - len(data) % 64)
                 return cipher.decrypt(padded_data)[:len(data)]
             raise e
-
-    # def _majority_vote_aggregation(self, decoded_tensor: torch.Tensor) -> torch.Tensor:
-    #     """修正后的多数投票聚合函数"""
-    #     # 获取参数
-    #     ch_factor = self.ch  # 通道复制因子
-    #     hw_factor = self.hw  # 空间复制因子
-    #     bs, c, h, w = decoded_tensor.shape  # 输入形状 [1,4,64,64]
-    #
-    #     # 确保输入维度合法性
-    #     assert c == 4, f"潜在空间通道数必须为4，实际得到{c}"
-    #     assert h % hw_factor == 0 and w % hw_factor == 0, "HW维度必须能被复制因子整除"
-    #
-    #     # 分块逻辑 ------------------------------------------------------
-    #     # 步骤1：按通道分块 [1,4,64,64] -> [ch_factor, (4/ch_factor), 64, 64]
-    #     # 例如 ch_factor=1 时分为 [1,4,64,64]
-    #     channel_blocks = torch.chunk(decoded_tensor, ch_factor, dim=1)
-    #
-    #     # 步骤2：每个通道块再按高度分块 [N, c_sub, h, w] -> [N*hw_factor, c_sub, h_sub, w]
-    #     height_blocks = []
-    #     for c_block in channel_blocks:
-    #         h_blocks = torch.chunk(c_block, hw_factor, dim=2)
-    #         height_blocks.extend(h_blocks)
-    #
-    #     # 步骤3：每个高度块再按宽度分块 [N, c_sub, h_sub, w] -> [N*hw_factor, c_sub, h_sub, w_sub]
-    #     spatial_blocks = []
-    #     for h_block in height_blocks:
-    #         w_blocks = torch.chunk(h_block, hw_factor, dim=3)
-    #         spatial_blocks.extend(w_blocks)
-    #
-    #     # 多数投票聚合 --------------------------------------------------
-    #     aggregated = []
-    #     for block in spatial_blocks:
-    #         # 计算每个块的多数值 [bs, c_sub, h_sub, w_sub]
-    #         sum_val = block.sum()
-    #         vote = 1 if sum_val > self.threshold else 0
-    #         aggregated.append(vote)
-    #
-    #     # 重组为原始水印形状 [1, (4/ch_factor), (h/hw_factor), (w/hw_factor)]
-    #     watermark_shape = [
-    #         1,
-    #         4 // ch_factor,
-    #         h // hw_factor,
-    #         w // hw_factor
-    #     ]
-    #     return torch.tensor(aggregated, device=self.device).reshape(watermark_shape).float()

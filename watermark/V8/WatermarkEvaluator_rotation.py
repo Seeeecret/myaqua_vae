@@ -162,7 +162,7 @@ def set_random_seed(seed):
 if __name__ == "__main__":
     evaluator = WatermarkEvaluator(
         device="cuda",
-        num_samples=100,
+        num_samples=10,
         num_inference_steps=50,
         seed=42,
         output_dir="/baai-cwm-nas/algorithm/ziyang.yan/nips_2025/vae_data/eval/V8/origin",

@@ -73,7 +73,7 @@ class RobustnessEvaluator(WatermarkEvaluator):
 
         if self.distortion_config.get('rotation_degree_same'):
             transform_chain.append(
-                transforms.RandomRotation((-self.distortion_config['rotation_degree_same'],
+                transforms.RandomRotation((self.distortion_config['rotation_degree_same'],
                                            self.distortion_config['rotation_degree_same']))
             )
 
